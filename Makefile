@@ -3,4 +3,4 @@ VERSION_FLAGS := -ldflags='-X "github.com/sinkingpoint/clogger/cmd/clogger/build
 
 .PHONY: build
 build:
-	go build $(VERSION_FLAGS) ./cmd/clogger 
+	gotip build $(VERSION_FLAGS) ./cmd/clogger 
