@@ -6,28 +6,30 @@ import (
 )
 
 type messageReaderContext struct {
-	messages []Message
+	Messages []Message
 }
 
 func (m *messageReaderContext) Reset(ctx context.Context) {
-	m.messages = m.messages[:0]
+	m.Messages = m.Messages[:0]
 }
 
 var messageReadersPool sync.Pool
 
 func GetMessageReader(ctx context.Context, numMessages int) *messageReaderContext {
-	reader := messageReadersPool.Get().(*messageReaderContext)
+	reader := messageReadersPool.Get()
+
 	if reader == nil {
 		reader = &messageReaderContext{
-			messages: make([]Message, 0, numMessages),
+			Messages: make([]Message, 0, numMessages),
 		}
 	} else {
-		if cap(reader.messages) < numMessages {
-			reader.messages = make([]Message, 0, numMessages)
+		castReader := reader.(*messageReaderContext)
+		if cap(castReader.Messages) < numMessages {
+			castReader.Messages = make([]Message, 0, numMessages)
 		}
 	}
 
-	return reader
+	return reader.(*messageReaderContext)
 }
 
 func PutMessageReader(ctx context.Context, reader *messageReaderContext) {
