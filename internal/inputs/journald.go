@@ -45,19 +45,23 @@ func (c *CoreOSJournalDReader) GetEntry() (Message, error) {
 	}, nil
 }
 
+type JournalDInputConfig struct {
+	BatchSize int
+}
+
 type JournalDInput struct {
 	Reader    JournalDReader
 	BatchSize int
 }
 
-func NewJournalDInput(batchSize int) (*JournalDInput, error) {
+func NewJournalDInput(conf *JournalDInputConfig) (*JournalDInput, error) {
 	reader, err := NewCoreOSJournalDReader()
 	if err != nil {
 		return nil, err
 	}
 
 	return &JournalDInput{
-		BatchSize: batchSize,
+		BatchSize: conf.BatchSize,
 		Reader:    reader,
 	}, nil
 }
