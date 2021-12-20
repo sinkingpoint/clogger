@@ -1,6 +1,6 @@
 module github.com/sinkingpoint/clogger
 
-go 1.18
+go 1.17
 
 require (
 	github.com/rs/zerolog v1.26.0
@@ -14,4 +14,5 @@ require (
 	github.com/go-logr/logr v1.2.1 // indirect
 	github.com/go-logr/stdr v1.2.0 // indirect
 	github.com/golang/mock v1.6.0
+	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect
 )

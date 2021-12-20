@@ -5,12 +5,13 @@ import (
 
 	"github.com/coreos/go-systemd/v22/sdjournal"
 	"github.com/rs/zerolog/log"
+	"github.com/sinkingpoint/clogger/internal/clogger"
 	"github.com/sinkingpoint/clogger/internal/tracing"
 	"go.opentelemetry.io/otel/attribute"
 )
 
 type JournalDReader interface {
-	GetEntry() (Message, error)
+	GetEntry() (clogger.Message, error)
 }
 
 type CoreOSJournalDReader struct {
@@ -28,18 +29,18 @@ func NewCoreOSJournalDReader() (*CoreOSJournalDReader, error) {
 	}, nil
 }
 
-func (c *CoreOSJournalDReader) GetEntry() (Message, error) {
+func (c *CoreOSJournalDReader) GetEntry() (clogger.Message, error) {
 	_, err := c.reader.Next()
 	if err != nil {
-		return Message{}, err
+		return clogger.Message{}, err
 	}
 
 	entry, err := c.reader.GetEntry()
 	if err != nil {
-		return Message{}, err
+		return clogger.Message{}, err
 	}
 
-	return Message{
+	return clogger.Message{
 		MonoTimestamp: entry.MonotonicTimestamp,
 		ParsedFields:  entry.Fields,
 	}, nil
@@ -66,7 +67,7 @@ func NewJournalDInput(conf *JournalDInputConfig) (*JournalDInput, error) {
 	}, nil
 }
 
-func (j *JournalDInput) Fetch(ctx context.Context, dst *messageReaderContext) error {
+func (j *JournalDInput) Fetch(ctx context.Context, dst *clogger.Messages) error {
 	_, span := tracing.GetTracer().Start(ctx, "JournalDInput.Fetch")
 	defer span.End()
 

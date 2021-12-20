@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/sinkingpoint/clogger/internal/clogger"
 	"github.com/sinkingpoint/clogger/internal/inputs"
 	"github.com/sinkingpoint/clogger/testutils/mock_inputs"
 )
@@ -26,8 +27,8 @@ func TestJournalDInput(t *testing.T) {
 		BatchSize: 2,
 	}
 
-	dest := inputs.GetMessageReader(context.Background(), 5)
-	defer inputs.PutMessageReader(context.Background(), dest)
+	dest := clogger.GetMessages(context.Background(), 5)
+	defer clogger.PutMessages(context.Background(), dest)
 	err := journalDInput.Fetch(context.Background(), dest)
 	if err != nil {
 		t.Fatalf("Error fetching data: %s", err)

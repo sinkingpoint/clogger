@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	inputs "github.com/sinkingpoint/clogger/internal/inputs"
+	clogger "github.com/sinkingpoint/clogger/internal/clogger"
 )
 
 // MockJournalDReader is a mock of JournalDReader interface.
@@ -35,10 +35,10 @@ func (m *MockJournalDReader) EXPECT() *MockJournalDReaderMockRecorder {
 }
 
 // GetEntry mocks base method.
-func (m *MockJournalDReader) GetEntry() (inputs.Message, error) {
+func (m *MockJournalDReader) GetEntry() (clogger.Message, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetEntry")
-	ret0, _ := ret[0].(inputs.Message)
+	ret0, _ := ret[0].(clogger.Message)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

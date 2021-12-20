@@ -1,9 +1,13 @@
 package inputs
 
-import "context"
+import (
+	"context"
+
+	"github.com/sinkingpoint/clogger/internal/clogger"
+)
 
 type Inputter interface {
-	Fetch(ctx context.Context, dst *messageReaderContext) error
+	Fetch(ctx context.Context, dst *clogger.Messages) error
 }
 
 type Message struct {
