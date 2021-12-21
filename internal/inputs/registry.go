@@ -1,16 +1,25 @@
 package inputs
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/sinkingpoint/clogger/internal/clogger"
+)
 
 type inputterConstructor = func(rawConf interface{}) (Inputter, error)
-type configConstructor = func(map[string]interface{}) (interface{}, error)
+type configConstructor = func(rawConf map[string]interface{}, flushChannel chan clogger.Messages) (interface{}, error)
 
 var InputsRegistry = NewRegistry()
 
 func init() {
-	InputsRegistry.Register("journald", func(rawConf map[string]interface{}) (interface{}, error) {
+	InputsRegistry.Register("journald", func(rawConf map[string]interface{}, flushChannel chan clogger.Messages) (interface{}, error) {
+		conf, err := clogger.NewSendRecvConfigBaseFromRaw(rawConf, flushChannel)
+		if err != nil {
+			return nil, err
+		}
+
 		return JournalDInputConfig{
-			BatchSize: 10,
+			SendRecvConfigBase: conf,
 		}, nil
 	}, func(conf interface{}) (Inputter, error) {
 		if c, ok := conf.(*JournalDInputConfig); ok {

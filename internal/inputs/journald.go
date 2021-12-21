@@ -2,12 +2,12 @@ package inputs
 
 import (
 	"context"
+	"sync"
 
 	"github.com/coreos/go-systemd/v22/sdjournal"
-	"github.com/rs/zerolog/log"
 	"github.com/sinkingpoint/clogger/internal/clogger"
-	"github.com/sinkingpoint/clogger/internal/tracing"
-	"go.opentelemetry.io/otel/attribute"
+
+	"github.com/rs/zerolog/log"
 )
 
 type JournalDReader interface {
@@ -47,12 +47,12 @@ func (c *CoreOSJournalDReader) GetEntry() (clogger.Message, error) {
 }
 
 type JournalDInputConfig struct {
-	BatchSize int
+	clogger.SendRecvConfigBase
 }
 
 type JournalDInput struct {
-	Reader    JournalDReader
-	BatchSize int
+	clogger.SendRecvBase
+	Reader JournalDReader
 }
 
 func NewJournalDInput(conf *JournalDInputConfig) (*JournalDInput, error) {
@@ -62,36 +62,29 @@ func NewJournalDInput(conf *JournalDInputConfig) (*JournalDInput, error) {
 	}
 
 	return &JournalDInput{
-		BatchSize: conf.BatchSize,
-		Reader:    reader,
+		SendRecvBase: clogger.NewSendRecvBase(conf.SendRecvConfigBase),
+		Reader:       reader,
 	}, nil
 }
 
-func (j *JournalDInput) Fetch(ctx context.Context, dst *clogger.Messages) error {
-	_, span := tracing.GetTracer().Start(ctx, "JournalDInput.Fetch")
-	defer span.End()
+func (j *JournalDInput) Run(ctx context.Context, wg sync.WaitGroup) error {
+	// Start the flusher
+	j.SendRecvBase.Run(ctx, wg)
 
-	span.SetAttributes(
-		attribute.Int("batch_size", j.BatchSize),
-		attribute.Int("dest_buffer_size", len(dst.Messages)),
-	)
+	wg.Add(1)
+	go func() {
+		for {
+			msg, err := j.Reader.GetEntry()
+			if err != nil {
+				log.Err(err).Msg("Failed to read from JournalD")
+				continue
+			}
 
-	if cap(dst.Messages) < j.BatchSize {
-		log.Fatal().
-			Int("batch_size", j.BatchSize).
-			Int("dest_size", len(dst.Messages)).
-			Msg("TEST: Batch Size is bigger than the supplied buffer")
-	}
-
-	for i := 0; i < j.BatchSize; i++ {
-		entry, err := j.Reader.GetEntry()
-		if err != nil {
-			span.RecordError(err)
-			return err
+			j.SendRecvBase.PushMessage(ctx, msg)
 		}
 
-		dst.Messages = append(dst.Messages, entry)
-	}
+		wg.Done()
+	}()
 
 	return nil
 }

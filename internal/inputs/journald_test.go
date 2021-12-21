@@ -2,7 +2,9 @@ package inputs_test
 
 import (
 	"context"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/sinkingpoint/clogger/internal/clogger"
@@ -17,24 +19,23 @@ func TestJournalDInput(t *testing.T) {
 	mockJournalD := mock_inputs.NewMockJournalDReader(ctrl)
 	mockJournalD.EXPECT().GetEntry().DoAndReturn(func() (inputs.Message, error) {
 		return inputs.Message{
-			MonoTimestamp: 0,
+			MonoTimestamp: 10,
 			RawMessage:    "test",
 		}, nil
-	}).MinTimes(2).MaxTimes(2)
+	}).MinTimes(2)
+
+	flushChan := make(chan clogger.Messages)
 
 	journalDInput := inputs.JournalDInput{
-		Reader:    mockJournalD,
-		BatchSize: 2,
+		SendRecvBase: clogger.NewSendRecvBase(clogger.NewSendRecvConfigBase(2, time.Second, flushChan)),
+		Reader:       mockJournalD,
 	}
 
-	dest := clogger.GetMessages(context.Background(), 5)
-	defer clogger.PutMessages(context.Background(), dest)
-	err := journalDInput.Fetch(context.Background(), dest)
-	if err != nil {
-		t.Fatalf("Error fetching data: %s", err)
-	}
+	journalDInput.Run(context.Background(), sync.WaitGroup{})
 
-	if len(dest.Messages) != 2 {
-		t.Errorf("Expected to fetch two messages, got %d", len(dest.Messages))
+	messages := <-flushChan
+
+	if len(messages) != 2 {
+		t.Errorf("Expected to fetch two messages, got %d", len(messages))
 	}
 }
