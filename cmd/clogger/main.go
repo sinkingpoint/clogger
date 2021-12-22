@@ -10,10 +10,17 @@ import (
 	"github.com/sinkingpoint/clogger/internal/inputs"
 	"github.com/sinkingpoint/clogger/internal/outputs"
 	"github.com/sinkingpoint/clogger/internal/pipeline"
+	"github.com/sinkingpoint/clogger/internal/tracing"
 )
 
 func main() {
 	log.Info().Str("version", build.GitHash).Msg("Started Clogger")
+
+	tracing.InitTracing(tracing.TracingConfig{
+		ServiceName:  "clogger",
+		SamplingRate: 1,
+		Debug:        true,
+	})
 
 	conf := clogger.NewRecvConfig()
 	input, err := inputs.NewJournalDInput(conf)

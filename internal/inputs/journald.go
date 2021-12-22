@@ -5,6 +5,7 @@ import (
 
 	"github.com/coreos/go-systemd/v22/sdjournal"
 	"github.com/sinkingpoint/clogger/internal/clogger"
+	"github.com/sinkingpoint/clogger/internal/tracing"
 
 	"github.com/rs/zerolog/log"
 )
@@ -40,6 +41,9 @@ func (c *CoreOSJournalDReader) Close() {
 }
 
 func (c *CoreOSJournalDReader) GetEntry(ctx context.Context) (clogger.Message, error) {
+	_, span := tracing.GetTracer().Start(ctx, "CoreOSJournalDReader.GetEntry")
+	defer span.End()
+
 	var err error
 	var i uint64
 
@@ -53,6 +57,7 @@ func (c *CoreOSJournalDReader) GetEntry(ctx context.Context) (clogger.Message, e
 			return clogger.Message{}, err
 		}
 	}
+	span.AddEvent("Finished Waiting")
 
 	entry, err := c.reader.GetEntry()
 	if err != nil {

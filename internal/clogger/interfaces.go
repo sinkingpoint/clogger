@@ -94,7 +94,7 @@ func (s *Send) Flush(ctx context.Context, final bool) {
 
 	if len(s.buffer) > 0 {
 		s.flushFunc(ctx, s.buffer)
-		s.buffer = s.buffer[0:]
+		s.buffer = s.buffer[:0]
 		s.lastFlushTime = time.Now()
 	}
 }
