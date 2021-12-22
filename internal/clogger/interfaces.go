@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/sinkingpoint/clogger/internal/tracing"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 const DEFAULT_BATCH_SIZE = 100
@@ -58,6 +59,9 @@ func NewSend(config SendConfig) *Send {
 func (s *Send) queueMessages(ctx context.Context, messages []Message) {
 	ctx, span := tracing.GetTracer().Start(ctx, "Send.queueMessages")
 	defer span.End()
+
+	span.SetAttributes(attribute.Int("num_new_messages", len(messages)))
+
 	// We don't have enough room in the buffer for all these messages
 	// add what we can, flush, and then store the rest in the buffer
 	remainingRoom := cap(s.buffer) - len(s.buffer)
@@ -73,14 +77,26 @@ func (s *Send) queueMessages(ctx context.Context, messages []Message) {
 }
 
 func (s *Send) Flush(ctx context.Context, final bool) {
+	ctx, span := tracing.GetTracer().Start(ctx, "Send.Flush")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.Bool("final", final),
+		attribute.String("last_flush_time", s.lastFlushTime.Format(time.RFC3339)),
+		attribute.Int("messages_in_queue", len(s.buffer)),
+	)
+
 	// If we aren't at the buffer limit, and we have flushed recently, and this isn't the final flush, just shortcircuit
 	if time.Since(s.lastFlushTime) < s.FlushInterval && len(s.buffer) < s.BufferSize && !final {
+		span.AddEvent("Skipping Flush - not ready yet")
 		return
 	}
 
-	s.flushFunc(ctx, s.buffer)
-	s.buffer = s.buffer[0:]
-	s.lastFlushTime = time.Now()
+	if len(s.buffer) > 0 {
+		s.flushFunc(ctx, s.buffer)
+		s.buffer = s.buffer[0:]
+		s.lastFlushTime = time.Now()
+	}
 }
 
 func Run(inputChan chan []Message, s Send, flushFunc FlushFunction) {
