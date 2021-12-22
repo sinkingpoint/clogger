@@ -5,6 +5,7 @@
 package mock_inputs
 
 import (
+	context "context"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
@@ -34,17 +35,29 @@ func (m *MockJournalDReader) EXPECT() *MockJournalDReaderMockRecorder {
 	return m.recorder
 }
 
-// GetEntry mocks base method.
-func (m *MockJournalDReader) GetEntry() (clogger.Message, error) {
+// Close mocks base method.
+func (m *MockJournalDReader) Close() {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetEntry")
+	m.ctrl.Call(m, "Close")
+}
+
+// Close indicates an expected call of Close.
+func (mr *MockJournalDReaderMockRecorder) Close() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockJournalDReader)(nil).Close))
+}
+
+// GetEntry mocks base method.
+func (m *MockJournalDReader) GetEntry(ctx context.Context) (clogger.Message, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetEntry", ctx)
 	ret0, _ := ret[0].(clogger.Message)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetEntry indicates an expected call of GetEntry.
-func (mr *MockJournalDReaderMockRecorder) GetEntry() *gomock.Call {
+func (mr *MockJournalDReaderMockRecorder) GetEntry(ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEntry", reflect.TypeOf((*MockJournalDReader)(nil).GetEntry))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEntry", reflect.TypeOf((*MockJournalDReader)(nil).GetEntry), ctx)
 }

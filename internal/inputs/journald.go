@@ -10,7 +10,8 @@ import (
 )
 
 type JournalDReader interface {
-	GetEntry() (clogger.Message, error)
+	GetEntry(ctx context.Context) (clogger.Message, error)
+	Close()
 }
 
 type CoreOSJournalDReader struct {
@@ -23,15 +24,34 @@ func NewCoreOSJournalDReader() (*CoreOSJournalDReader, error) {
 		return nil, err
 	}
 
+	err = reader.SeekTail()
+	if err != nil {
+		reader.Close()
+		return nil, err
+	}
+
 	return &CoreOSJournalDReader{
 		reader: reader,
 	}, nil
 }
 
-func (c *CoreOSJournalDReader) GetEntry() (clogger.Message, error) {
-	_, err := c.reader.Next()
-	if err != nil {
-		return clogger.Message{}, err
+func (c *CoreOSJournalDReader) Close() {
+	c.reader.Close()
+}
+
+func (c *CoreOSJournalDReader) GetEntry(ctx context.Context) (clogger.Message, error) {
+	var err error
+	var i uint64
+
+	i = 0
+
+	for i <= 0 {
+		c.reader.Wait(sdjournal.IndefiniteWait)
+		i, err = c.reader.Next()
+
+		if err != nil {
+			return clogger.Message{}, err
+		}
 	}
 
 	entry, err := c.reader.GetEntry()
@@ -68,8 +88,9 @@ func NewJournalDInput(conf clogger.RecvConfig) (*JournalDInput, error) {
 }
 
 func (j *JournalDInput) Run(ctx context.Context, flushChan chan []clogger.Message) error {
+	defer j.Reader.Close()
 	for {
-		msg, err := j.Reader.GetEntry()
+		msg, err := j.Reader.GetEntry(ctx)
 		if err != nil {
 			log.Err(err).Msg("Failed to read from JournalD")
 			continue

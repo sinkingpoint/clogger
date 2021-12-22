@@ -15,7 +15,7 @@ func TestJournalDInput(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockJournalD := mock_inputs.NewMockJournalDReader(ctrl)
-	mockJournalD.EXPECT().GetEntry().DoAndReturn(func() (inputs.Message, error) {
+	mockJournalD.EXPECT().GetEntry(context.Background()).DoAndReturn(func(ctx context.Context) (inputs.Message, error) {
 		return inputs.Message{
 			MonoTimestamp: 10,
 			RawMessage:    "test",
