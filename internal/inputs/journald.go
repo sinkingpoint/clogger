@@ -2,7 +2,6 @@ package inputs
 
 import (
 	"context"
-	"sync"
 
 	"github.com/coreos/go-systemd/v22/sdjournal"
 	"github.com/sinkingpoint/clogger/internal/clogger"
@@ -40,51 +39,44 @@ func (c *CoreOSJournalDReader) GetEntry() (clogger.Message, error) {
 		return clogger.Message{}, err
 	}
 
+	m2 := make(map[string]interface{}, len(entry.Fields))
+	for k, v := range entry.Fields {
+		m2[k] = v
+	}
+
 	return clogger.Message{
 		MonoTimestamp: entry.MonotonicTimestamp,
-		ParsedFields:  entry.Fields,
+		ParsedFields:  m2,
 	}, nil
 }
 
-type JournalDInputConfig struct {
-	clogger.SendRecvConfigBase
-}
-
 type JournalDInput struct {
-	clogger.SendRecvBase
+	clogger.RecvConfig
 	Reader JournalDReader
 }
 
-func NewJournalDInput(conf *JournalDInputConfig) (*JournalDInput, error) {
+func NewJournalDInput(conf clogger.RecvConfig) (*JournalDInput, error) {
 	reader, err := NewCoreOSJournalDReader()
 	if err != nil {
 		return nil, err
 	}
 
 	return &JournalDInput{
-		SendRecvBase: clogger.NewSendRecvBase(conf.SendRecvConfigBase),
-		Reader:       reader,
+		RecvConfig: conf,
+		Reader:     reader,
 	}, nil
 }
 
-func (j *JournalDInput) Run(ctx context.Context, wg sync.WaitGroup) error {
-	// Start the flusher
-	j.SendRecvBase.Run(ctx, wg)
-
-	wg.Add(1)
-	go func() {
-		for {
-			msg, err := j.Reader.GetEntry()
-			if err != nil {
-				log.Err(err).Msg("Failed to read from JournalD")
-				continue
-			}
-
-			j.SendRecvBase.PushMessage(ctx, msg)
+func (j *JournalDInput) Run(ctx context.Context, flushChan chan []clogger.Message) error {
+	for {
+		msg, err := j.Reader.GetEntry()
+		if err != nil {
+			log.Err(err).Msg("Failed to read from JournalD")
+			continue
 		}
 
-		wg.Done()
-	}()
+		flushChan <- []clogger.Message{msg}
+	}
 
 	return nil
 }

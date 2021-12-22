@@ -2,13 +2,9 @@ package clogger
 
 import (
 	"context"
-	"fmt"
-	"sync"
 	"time"
 
-	"github.com/rs/zerolog/log"
 	"github.com/sinkingpoint/clogger/internal/tracing"
-	"go.opentelemetry.io/otel/attribute"
 )
 
 const DEFAULT_BATCH_SIZE = 100
@@ -16,119 +12,90 @@ const DEFAULT_FLUSH_DURATION = 10 * time.Millisecond
 
 type Message struct {
 	MonoTimestamp uint64
-	ParsedFields  map[string]string
+	ParsedFields  map[string]interface{}
 	RawMessage    string
 }
 
-type Messages []Message
+type FlushFunction func(ctx context.Context, messages []Message) error
 
-type SendRecvConfigBase struct {
-	BatchSize    int
-	BatchDelay   time.Duration
-	FlushChannel chan Messages
-	KillChannel  chan bool
+type RecvConfig struct {
+	KillChannel chan bool
 }
 
-func NewSendRecvConfigBase(batchSize int, batchDelay time.Duration, flushChannel chan Messages) SendRecvConfigBase {
-	return SendRecvConfigBase{
-		BatchSize:    batchSize,
-		BatchDelay:   batchDelay,
-		FlushChannel: flushChannel,
-		KillChannel:  make(chan bool, 1),
+func NewRecvConfig() RecvConfig {
+	return RecvConfig{
+		KillChannel: make(chan bool),
 	}
 }
 
-func NewSendRecvConfigBaseFromRaw(raw map[string]interface{}, flushChannel chan Messages) (SendRecvConfigBase, error) {
-	var batchSize int
-	batchSizeInterface, existOk := raw["batch_size"]
-	if existOk {
-		b, ok := batchSizeInterface.(int)
-		if !ok {
-			return SendRecvConfigBase{}, fmt.Errorf("invalid type for batch_size, expected int")
-		}
-		batchSize = b
-	} else {
-		batchSize = DEFAULT_BATCH_SIZE
-	}
-
-	var flushDuration time.Duration
-	flushDurationInterface, existOk := raw["flush_duration"]
-	if existOk {
-		f, ok := flushDurationInterface.(string)
-		if !ok {
-			return SendRecvConfigBase{}, fmt.Errorf("invalid type for batch_size, expected int")
-		}
-		f2, err := time.ParseDuration(f)
-		if err != nil {
-			return SendRecvConfigBase{}, fmt.Errorf("error parsing flush duration: `%s`", f)
-		}
-
-		flushDuration = f2
-	} else {
-		flushDuration = DEFAULT_FLUSH_DURATION
-	}
-
-	return NewSendRecvConfigBase(batchSize, flushDuration, flushChannel), nil
+type SendConfig struct {
+	FlushInterval time.Duration
+	BufferSize    int
+	InputChan     chan []Message
 }
 
-type SendRecvBase struct {
-	SendRecvConfigBase
+type Sender interface {
+	Run(inputChan chan []Message)
+}
+
+type Send struct {
+	SendConfig
+	KillChannel   chan bool
+	buffer        []Message
 	lastFlushTime time.Time
-	buffer        Messages
+	flushFunc     FlushFunction
 }
 
-func NewSendRecvBase(conf SendRecvConfigBase) SendRecvBase {
-	return SendRecvBase{
-		SendRecvConfigBase: conf,
-		lastFlushTime:      time.Now(),
-		buffer:             make(Messages, 0, conf.BatchSize),
+func NewSend(config SendConfig) *Send {
+	return &Send{
+		SendConfig:    config,
+		KillChannel:   make(chan bool),
+		buffer:        make([]Message, 0, config.BufferSize),
+		lastFlushTime: time.Now(),
 	}
 }
 
-func (s *SendRecvBase) PushMessage(ctx context.Context, m Message) error {
-	s.buffer = append(s.buffer, m)
-	return s.Flush(ctx)
-}
-
-func (s *SendRecvBase) Run(ctx context.Context, wg sync.WaitGroup) error {
-	timer := time.NewTicker(s.BatchDelay)
-
-	wg.Add(1)
-	go func() {
-	outer:
-		for {
-			select {
-			case <-s.KillChannel:
-				break outer
-			default:
-				<-timer.C
-				err := s.Flush(ctx)
-				if err != nil {
-				}
-			}
-		}
-
-		wg.Done()
-	}()
-
-	return nil
-}
-
-func (s *SendRecvBase) Flush(ctx context.Context) error {
-	_, span := tracing.GetTracer().Start(ctx, "SendRecvBase.Flush")
+func (s *Send) queueMessages(ctx context.Context, messages []Message) {
+	ctx, span := tracing.GetTracer().Start(ctx, "Send.queueMessages")
 	defer span.End()
-
-	if len(s.buffer) < s.BatchSize && time.Since(s.lastFlushTime) < s.BatchDelay {
-		// We aren't at the buffer limit, and we haven't hit the time limit
-		return nil
+	// We don't have enough room in the buffer for all these messages
+	// add what we can, flush, and then store the rest in the buffer
+	remainingRoom := cap(s.buffer) - len(s.buffer)
+	if remainingRoom < len(messages) {
+		s.buffer = append(s.buffer, messages[:remainingRoom]...)
+		s.Flush(ctx, false)
+		s.buffer = append(s.buffer[:0], messages[remainingRoom:]...)
+		return
 	}
 
-	log.Info().Interface("message", s.buffer).Msg("Inserting Message")
-	span.SetAttributes(attribute.Int("batch_size", len(s.buffer)))
+	// Otherwise, just add them to the buffer
+	s.buffer = append(s.buffer, messages...)
+}
 
-	s.FlushChannel <- s.buffer
+func (s *Send) Flush(ctx context.Context, final bool) {
+	// If we aren't at the buffer limit, and we have flushed recently, and this isn't the final flush, just shortcircuit
+	if time.Since(s.lastFlushTime) < s.FlushInterval && len(s.buffer) < s.BufferSize && !final {
+		return
+	}
+
+	s.flushFunc(ctx, s.buffer)
 	s.buffer = s.buffer[0:]
 	s.lastFlushTime = time.Now()
+}
 
-	return nil
+func Run(inputChan chan []Message, s Send, flushFunc FlushFunction) {
+	s.flushFunc = flushFunc
+	ticker := time.NewTicker(s.FlushInterval)
+outer:
+	for {
+		select {
+		case <-s.KillChannel:
+			s.Flush(context.Background(), true)
+			break outer
+		case <-ticker.C:
+			s.Flush(context.Background(), false)
+		case messages := <-inputChan:
+			s.queueMessages(context.Background(), messages)
+		}
+	}
 }

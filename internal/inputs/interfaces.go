@@ -2,15 +2,12 @@ package inputs
 
 import (
 	"context"
-	"sync"
 
 	"github.com/sinkingpoint/clogger/internal/clogger"
 )
 
-type MessageChan = chan clogger.Messages
-
 type Inputter interface {
-	Run(ctx context.Context, wg sync.WaitGroup) error
+	Run(ctx context.Context, flushChan chan []clogger.Message) error
 }
 
 type Message struct {

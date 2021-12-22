@@ -11,39 +11,43 @@ import (
 )
 
 type StdOutputterConfig struct {
-	formatter string
+	clogger.SendConfig
+	Formatter string
 }
 
 type StdOutputter struct {
+	clogger.Send
 	formatter format.Formatter
 }
 
-func NewStdOutputter(conf *StdOutputterConfig) (*StdOutputter, error) {
-	if conf.formatter == "" {
-		conf.formatter = "json"
+func NewStdOutputter(conf StdOutputterConfig) (*StdOutputter, error) {
+	if conf.Formatter == "" {
+		conf.Formatter = "json"
 	}
 
-	formatter, err := format.GetFormatterFromString(conf.formatter)
+	formatter, err := format.GetFormatterFromString(conf.Formatter)
 
 	if err != nil {
 		return nil, err
 	}
 
 	return &StdOutputter{
+		Send:      *clogger.NewSend(conf.SendConfig),
 		formatter: formatter,
 	}, nil
 }
 
-func (s *StdOutputter) Output(ctx context.Context, src *clogger.Messages) error {
-	_, span := tracing.GetTracer().Start(ctx, "StdOutputter.Outputter")
+func (s *StdOutputter) FlushToOutput(ctx context.Context, messages []clogger.Message) error {
+	_, span := tracing.GetTracer().Start(ctx, "StdOutputter.FlushToOutput")
 	defer span.End()
 
-	span.SetAttributes(attribute.Int("batch_size", len(src.Messages)))
+	span.SetAttributes(attribute.Int("batch_size", len(messages)))
 
 	var firstError error
 
-	for i := range src.Messages {
-		msg := &src.Messages[i]
+	for i := range messages {
+		msg := &messages[i]
+		msg.ParsedFields["auth_timestamp"] = msg.MonoTimestamp
 		s, err := s.formatter.Format(msg)
 		if err != nil {
 			if firstError == nil {
@@ -59,4 +63,8 @@ func (s *StdOutputter) Output(ctx context.Context, src *clogger.Messages) error 
 	}
 
 	return firstError
+}
+
+func (s *StdOutputter) Run(inputChan chan []clogger.Message) {
+	clogger.Run(inputChan, s.Send, s.FlushToOutput)
 }

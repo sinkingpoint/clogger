@@ -2,9 +2,7 @@ package inputs_test
 
 import (
 	"context"
-	"sync"
 	"testing"
-	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/sinkingpoint/clogger/internal/clogger"
@@ -24,16 +22,17 @@ func TestJournalDInput(t *testing.T) {
 		}, nil
 	}).MinTimes(2)
 
-	flushChan := make(chan clogger.Messages)
+	flushChan := make(chan []clogger.Message)
 
 	journalDInput := inputs.JournalDInput{
-		SendRecvBase: clogger.NewSendRecvBase(clogger.NewSendRecvConfigBase(2, time.Second, flushChan)),
-		Reader:       mockJournalD,
+		Reader: mockJournalD,
 	}
 
-	journalDInput.Run(context.Background(), sync.WaitGroup{})
+	go journalDInput.Run(context.Background(), flushChan)
 
 	messages := <-flushChan
+	message2 := <-flushChan
+	messages = append(messages, message2...)
 
 	if len(messages) != 2 {
 		t.Errorf("Expected to fetch two messages, got %d", len(messages))

@@ -7,22 +7,17 @@ import (
 )
 
 type inputterConstructor = func(rawConf interface{}) (Inputter, error)
-type configConstructor = func(rawConf map[string]interface{}, flushChannel chan clogger.Messages) (interface{}, error)
+type configConstructor = func(rawConf map[string]interface{}) (interface{}, error)
 
 var InputsRegistry = NewRegistry()
 
 func init() {
-	InputsRegistry.Register("journald", func(rawConf map[string]interface{}, flushChannel chan clogger.Messages) (interface{}, error) {
-		conf, err := clogger.NewSendRecvConfigBaseFromRaw(rawConf, flushChannel)
-		if err != nil {
-			return nil, err
-		}
+	InputsRegistry.Register("journald", func(rawConf map[string]interface{}) (interface{}, error) {
+		conf := clogger.NewRecvConfig()
 
-		return JournalDInputConfig{
-			SendRecvConfigBase: conf,
-		}, nil
+		return conf, nil
 	}, func(conf interface{}) (Inputter, error) {
-		if c, ok := conf.(*JournalDInputConfig); ok {
+		if c, ok := conf.(clogger.RecvConfig); ok {
 			return NewJournalDInput(c)
 		}
 

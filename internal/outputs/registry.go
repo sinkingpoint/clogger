@@ -1,8 +1,12 @@
 package outputs
 
-import "fmt"
+import (
+	"fmt"
 
-type outputterConstructor = func(rawConf interface{}) (Outputter, error)
+	"github.com/sinkingpoint/clogger/internal/clogger"
+)
+
+type outputterConstructor = func(rawConf interface{}) (clogger.Sender, error)
 type configConstructor = func(map[string]interface{}) (interface{}, error)
 
 var OutputsRegistry = NewRegistry()
@@ -12,7 +16,7 @@ func init() {
 		if format, ok := rawConf["format"]; ok {
 			if s, ok := format.(string); ok {
 				return StdOutputterConfig{
-					formatter: s,
+					Formatter: s,
 				}, nil
 			} else {
 				return nil, fmt.Errorf("invalid formatter specified: `%s`", format)
@@ -20,10 +24,10 @@ func init() {
 		}
 
 		return StdOutputterConfig{
-			formatter: "json",
+			Formatter: "json",
 		}, nil
-	}, func(rawConf interface{}) (Outputter, error) {
-		conf, ok := rawConf.(*StdOutputterConfig)
+	}, func(rawConf interface{}) (clogger.Sender, error) {
+		conf, ok := rawConf.(StdOutputterConfig)
 		if !ok {
 			return nil, fmt.Errorf("invalid config passed to StdOutputter")
 		}
