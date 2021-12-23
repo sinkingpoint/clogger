@@ -4,7 +4,7 @@ VERSION_FLAGS := -ldflags='-X "github.com/sinkingpoint/clogger/cmd/clogger/build
 
 .PHONY: test
 test:
-	go test ./...
+	gotip test ./...
 
 .PHONY: commit
 commit: test

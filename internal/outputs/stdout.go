@@ -11,12 +11,12 @@ import (
 )
 
 type StdOutputterConfig struct {
-	clogger.SendConfig
+	SendConfig
 	Formatter string
 }
 
 type StdOutputter struct {
-	clogger.Send
+	Send
 	formatter format.Formatter
 }
 
@@ -32,7 +32,7 @@ func NewStdOutputter(conf StdOutputterConfig) (*StdOutputter, error) {
 	}
 
 	return &StdOutputter{
-		Send:      *clogger.NewSend(conf.SendConfig),
+		Send:      *NewSend(conf.SendConfig),
 		formatter: formatter,
 	}, nil
 }
@@ -66,5 +66,5 @@ func (s *StdOutputter) FlushToOutput(ctx context.Context, messages []clogger.Mes
 }
 
 func (s *StdOutputter) Run(inputChan chan []clogger.Message) {
-	clogger.Run(inputChan, s.Send, s.FlushToOutput)
+	startOutputter(inputChan, s.Send, s.FlushToOutput)
 }

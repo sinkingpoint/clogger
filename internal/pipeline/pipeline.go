@@ -6,15 +6,16 @@ import (
 
 	"github.com/sinkingpoint/clogger/internal/clogger"
 	"github.com/sinkingpoint/clogger/internal/inputs"
+	"github.com/sinkingpoint/clogger/internal/outputs"
 )
 
 type Pipeline struct {
 	KillChannel chan bool
 	Inputs      []inputs.Inputter
-	Outputs     []clogger.Sender
+	Outputs     []outputs.Sender
 }
 
-func NewPipeline(inputs []inputs.Inputter, outputs []clogger.Sender) *Pipeline {
+func NewPipeline(inputs []inputs.Inputter, outputs []outputs.Sender) *Pipeline {
 	return &Pipeline{
 		Inputs:      inputs,
 		Outputs:     outputs,
@@ -38,7 +39,7 @@ func (p *Pipeline) Run() sync.WaitGroup {
 	for i := range p.Outputs {
 		wg.Add(1)
 		outputChans[i] = make(chan []clogger.Message)
-		go func(output clogger.Sender, flush chan []clogger.Message) {
+		go func(output outputs.Sender, flush chan []clogger.Message) {
 			defer wg.Done()
 			output.Run(outputChans[i])
 		}(p.Outputs[i], outputChans[i])

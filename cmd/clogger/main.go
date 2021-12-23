@@ -6,7 +6,6 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/sinkingpoint/clogger/cmd/clogger/build"
-	"github.com/sinkingpoint/clogger/internal/clogger"
 	"github.com/sinkingpoint/clogger/internal/inputs"
 	"github.com/sinkingpoint/clogger/internal/outputs"
 	"github.com/sinkingpoint/clogger/internal/pipeline"
@@ -29,7 +28,7 @@ func main() {
 	}
 
 	output, err := outputs.NewStdOutputter(outputs.StdOutputterConfig{
-		SendConfig: clogger.SendConfig{
+		SendConfig: outputs.SendConfig{
 			FlushInterval: time.Millisecond * 100,
 			BufferSize:    1000,
 		},
@@ -39,7 +38,7 @@ func main() {
 		log.Fatal().Err(err).Msg("Failed to create journald input")
 	}
 
-	pipeline := pipeline.NewPipeline([]inputs.Inputter{input}, []clogger.Sender{output})
+	pipeline := pipeline.NewPipeline([]inputs.Inputter{input}, []outputs.Sender{output})
 	wg := pipeline.Run()
 	wg.Wait()
 }
