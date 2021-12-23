@@ -19,16 +19,6 @@ type Message struct {
 
 type FlushFunction func(ctx context.Context, messages []Message) error
 
-type RecvConfig struct {
-	KillChannel chan bool
-}
-
-func NewRecvConfig() RecvConfig {
-	return RecvConfig{
-		KillChannel: make(chan bool),
-	}
-}
-
 type SendConfig struct {
 	FlushInterval time.Duration
 	BufferSize    int

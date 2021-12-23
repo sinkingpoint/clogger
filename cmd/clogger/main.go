@@ -22,7 +22,7 @@ func main() {
 		Debug:        true,
 	})
 
-	conf := clogger.NewRecvConfig()
+	conf := inputs.NewRecvConfig()
 	input, err := inputs.NewJournalDInput(conf)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to create journald input")

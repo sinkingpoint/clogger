@@ -2,8 +2,6 @@ package inputs
 
 import (
 	"fmt"
-
-	"github.com/sinkingpoint/clogger/internal/clogger"
 )
 
 type inputterConstructor = func(rawConf interface{}) (Inputter, error)
@@ -13,11 +11,11 @@ var InputsRegistry = NewRegistry()
 
 func init() {
 	InputsRegistry.Register("journald", func(rawConf map[string]interface{}) (interface{}, error) {
-		conf := clogger.NewRecvConfig()
+		conf := NewRecvConfig()
 
 		return conf, nil
 	}, func(conf interface{}) (Inputter, error) {
-		if c, ok := conf.(clogger.RecvConfig); ok {
+		if c, ok := conf.(RecvConfig); ok {
 			return NewJournalDInput(c)
 		}
 

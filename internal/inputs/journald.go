@@ -44,10 +44,11 @@ func (c *CoreOSJournalDReader) GetEntry(ctx context.Context) (clogger.Message, e
 	_, span := tracing.GetTracer().Start(ctx, "CoreOSJournalDReader.GetEntry")
 	defer span.End()
 
-	var err error
-	var i uint64
+	i, err := c.reader.Next()
 
-	i = 0
+	if err != nil {
+		return clogger.Message{}, err
+	}
 
 	for i <= 0 {
 		c.reader.Wait(sdjournal.IndefiniteWait)
@@ -76,11 +77,11 @@ func (c *CoreOSJournalDReader) GetEntry(ctx context.Context) (clogger.Message, e
 }
 
 type JournalDInput struct {
-	clogger.RecvConfig
+	RecvConfig
 	Reader JournalDReader
 }
 
-func NewJournalDInput(conf clogger.RecvConfig) (*JournalDInput, error) {
+func NewJournalDInput(conf RecvConfig) (*JournalDInput, error) {
 	reader, err := NewCoreOSJournalDReader()
 	if err != nil {
 		return nil, err
