@@ -41,7 +41,7 @@ func (p *Pipeline) Run() sync.WaitGroup {
 		outputChans[i] = make(chan []clogger.Message)
 		go func(output outputs.Sender, flush chan []clogger.Message) {
 			defer wg.Done()
-			output.Run(outputChans[i])
+			outputs.StartOutputter(flush, output)
 		}(p.Outputs[i], outputChans[i])
 	}
 

@@ -2,6 +2,7 @@ package outputs
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"github.com/sinkingpoint/clogger/internal/clogger"
@@ -16,7 +17,7 @@ type StdOutputterConfig struct {
 }
 
 type StdOutputter struct {
-	Send
+	SendConfig
 	formatter format.Formatter
 }
 
@@ -32,12 +33,17 @@ func NewStdOutputter(conf StdOutputterConfig) (*StdOutputter, error) {
 	}
 
 	return &StdOutputter{
-		Send:      *NewSend(conf.SendConfig),
-		formatter: formatter,
+		SendConfig: conf.SendConfig,
+		formatter:  formatter,
 	}, nil
 }
 
+func (s *StdOutputter) GetSendConfig() SendConfig {
+	return s.SendConfig
+}
+
 func (s *StdOutputter) FlushToOutput(ctx context.Context, messages []clogger.Message) error {
+	fmt.Println("Context ", ctx)
 	_, span := tracing.GetTracer().Start(ctx, "StdOutputter.FlushToOutput")
 	defer span.End()
 
@@ -63,8 +69,4 @@ func (s *StdOutputter) FlushToOutput(ctx context.Context, messages []clogger.Mes
 	}
 
 	return firstError
-}
-
-func (s *StdOutputter) Run(inputChan chan []clogger.Message) {
-	startOutputter(inputChan, s.Send, s.FlushToOutput)
 }

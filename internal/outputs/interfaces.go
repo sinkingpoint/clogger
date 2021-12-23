@@ -9,8 +9,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
-type FlushFunction func(ctx context.Context, messages []clogger.Message) error
-
 type SendConfig struct {
 	FlushInterval time.Duration
 	BufferSize    int
@@ -18,23 +16,25 @@ type SendConfig struct {
 }
 
 type Sender interface {
-	Run(inputChan chan []clogger.Message)
+	GetSendConfig() SendConfig
+	FlushToOutput(ctx context.Context, messages []clogger.Message) error
 }
 
 type Send struct {
 	SendConfig
 	KillChannel   chan bool
+	sender        Sender
 	buffer        []clogger.Message
 	lastFlushTime time.Time
-	flushFunc     FlushFunction
 }
 
-func NewSend(config SendConfig) *Send {
+func NewSend(config SendConfig, logic Sender) *Send {
 	return &Send{
 		SendConfig:    config,
 		KillChannel:   make(chan bool),
 		buffer:        make([]clogger.Message, 0, config.BufferSize),
 		lastFlushTime: time.Now(),
+		sender:        logic,
 	}
 }
 
@@ -67,7 +67,6 @@ func (s *Send) Flush(ctx context.Context, final bool) {
 		attribute.String("last_flush_time", s.lastFlushTime.Format(time.RFC3339)),
 		attribute.Int("messages_in_queue", len(s.buffer)),
 	)
-
 	// If we aren't at the buffer limit, and we have flushed recently, and this isn't the final flush, just shortcircuit
 	if time.Since(s.lastFlushTime) < s.FlushInterval && len(s.buffer) < s.BufferSize && !final {
 		span.AddEvent("Skipping Flush - not ready yet")
@@ -75,14 +74,14 @@ func (s *Send) Flush(ctx context.Context, final bool) {
 	}
 
 	if len(s.buffer) > 0 {
-		s.flushFunc(ctx, s.buffer)
+		s.sender.FlushToOutput(ctx, s.buffer)
 		s.buffer = s.buffer[:0]
 		s.lastFlushTime = time.Now()
 	}
 }
 
-func startOutputter(inputChan chan []clogger.Message, s Send, flushFunc FlushFunction) {
-	s.flushFunc = flushFunc
+func StartOutputter(inputChan chan []clogger.Message, send Sender) {
+	s := NewSend(send.GetSendConfig(), send)
 	ticker := time.NewTicker(s.FlushInterval)
 outer:
 	for {
