@@ -27,8 +27,6 @@ func LoadConfigFile(path string) (*pipeline.Pipeline, error) {
 		return nil, err
 	}
 
-	fmt.Println("Loaded graph ", configGraph)
-
 	return configGraph.ToPipeline()
 }
 

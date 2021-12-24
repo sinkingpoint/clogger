@@ -12,7 +12,7 @@ import (
 
 type StdOutputterConfig struct {
 	SendConfig
-	Formatter string
+	Formatter format.Formatter
 }
 
 type StdOutputter struct {
@@ -21,19 +21,9 @@ type StdOutputter struct {
 }
 
 func NewStdOutputter(conf StdOutputterConfig) (*StdOutputter, error) {
-	if conf.Formatter == "" {
-		conf.Formatter = "json"
-	}
-
-	formatter, err := format.GetFormatterFromString(conf.Formatter)
-
-	if err != nil {
-		return nil, err
-	}
-
 	return &StdOutputter{
 		SendConfig: conf.SendConfig,
-		formatter:  formatter,
+		formatter:  conf.Formatter,
 	}, nil
 }
 

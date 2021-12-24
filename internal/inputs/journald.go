@@ -104,6 +104,20 @@ outer:
 			break outer
 		default:
 			msg, err := j.Reader.GetEntry(ctx)
+			if msg.RawMessage != "" {
+				if _, ok := msg.ParsedFields[clogger.MESSAGE_FIELD]; ok {
+					msg.ParsedFields["raw_message"] = msg.RawMessage
+				} else {
+					msg.ParsedFields[clogger.MESSAGE_FIELD] = msg.RawMessage
+				}
+			}
+
+			if textMsg, ok := msg.ParsedFields["MESSAGE"]; ok {
+				// Normalise JournalD Formatted message field to our one
+				msg.ParsedFields[clogger.MESSAGE_FIELD] = textMsg
+				delete(msg.ParsedFields, "MESSAGE")
+			}
+
 			if err != nil {
 				log.Err(err).Msg("Failed to read from JournalD")
 				continue

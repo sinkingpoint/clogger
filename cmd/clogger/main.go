@@ -5,17 +5,16 @@ import (
 
 	"github.com/sinkingpoint/clogger/cmd/clogger/build"
 	"github.com/sinkingpoint/clogger/cmd/clogger/config"
-	"github.com/sinkingpoint/clogger/internal/tracing"
 )
 
 func main() {
 	log.Info().Str("version", build.GitHash).Msg("Started Clogger")
 
-	tracing.InitTracing(tracing.TracingConfig{
-		ServiceName:  "clogger",
-		SamplingRate: 1,
-		Debug:        true,
-	})
+	// tracing.InitTracing(tracing.TracingConfig{
+	// 	ServiceName:  "clogger",
+	// 	SamplingRate: 1,
+	// 	Debug:        true,
+	// })
 
 	pipeline, err := config.LoadConfigFile("config.dot")
 	if err != nil {

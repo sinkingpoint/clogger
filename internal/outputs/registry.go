@@ -2,6 +2,8 @@ package outputs
 
 import (
 	"fmt"
+
+	"github.com/sinkingpoint/clogger/internal/outputs/format"
 )
 
 type outputterConstructor = func(rawConf interface{}) (Outputter, error)
@@ -16,16 +18,27 @@ func init() {
 			return nil, err
 		}
 
-		if format, ok := rawConf["format"]; ok {
+		if fName, ok := rawConf["format"]; ok {
+			formatter, err := format.GetFormatterFromString(fName, rawConf)
+			if err != nil {
+				return nil, err
+			}
+
 			return StdOutputterConfig{
 				SendConfig: conf,
-				Formatter:  format,
+				Formatter:  formatter,
 			}, nil
+		}
+
+		// Default to JSON output because that's all I have at the moment
+		formatter, err := format.GetFormatterFromString("json", rawConf)
+		if err != nil {
+			return nil, err
 		}
 
 		return StdOutputterConfig{
 			SendConfig: conf,
-			Formatter:  "json",
+			Formatter:  formatter,
 		}, nil
 	}, func(rawConf interface{}) (Outputter, error) {
 		conf, ok := rawConf.(StdOutputterConfig)
@@ -55,7 +68,6 @@ func (r *OutputterRegistry) Register(name string, configGen configConstructor, c
 }
 
 func Construct(name string, config map[string]string) (Outputter, error) {
-	fmt.Println("Constructing ", name, " with config ", config)
 	if configMaker, ok := outputsRegistry.configRegistry[name]; ok {
 		config, err := configMaker(config)
 		if err != nil {
