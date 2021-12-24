@@ -41,7 +41,7 @@ func TestPipeline(t *testing.T) {
 	mockOutput := mock_outputs.NewMockOutputter(ctrl)
 	mockOutput.EXPECT().GetSendConfig().Return(outputs.SendConfig{
 		FlushInterval: time.Millisecond * 100,
-		BufferSize:    3,
+		BatchSize:     3,
 	}).MinTimes(1).MaxTimes(1)
 
 	mockOutput.EXPECT().FlushToOutput(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, messages []clogger.Message) error {

@@ -2,14 +2,12 @@ package outputs
 
 import (
 	"fmt"
-
-	"github.com/sinkingpoint/clogger/internal/outputs/format"
 )
 
 type outputterConstructor = func(rawConf interface{}) (Outputter, error)
 type configConstructor = func(map[string]string) (interface{}, error)
 
-var outputsRegistry = NewRegistry()
+var outputsRegistry = newRegistry()
 
 func init() {
 	outputsRegistry.Register("stdout", func(rawConf map[string]string) (interface{}, error) {
@@ -18,27 +16,8 @@ func init() {
 			return nil, err
 		}
 
-		if fName, ok := rawConf["format"]; ok {
-			formatter, err := format.GetFormatterFromString(fName, rawConf)
-			if err != nil {
-				return nil, err
-			}
-
-			return StdOutputterConfig{
-				SendConfig: conf,
-				Formatter:  formatter,
-			}, nil
-		}
-
-		// Default to JSON output because that's all I have at the moment
-		formatter, err := format.GetFormatterFromString("json", rawConf)
-		if err != nil {
-			return nil, err
-		}
-
 		return StdOutputterConfig{
 			SendConfig: conf,
-			Formatter:  formatter,
 		}, nil
 	}, func(rawConf interface{}) (Outputter, error) {
 		conf, ok := rawConf.(StdOutputterConfig)
@@ -50,19 +29,19 @@ func init() {
 	})
 }
 
-type OutputterRegistry struct {
+type outputterRegistry struct {
 	constructorRegistry map[string]outputterConstructor
 	configRegistry      map[string]configConstructor
 }
 
-func NewRegistry() OutputterRegistry {
-	return OutputterRegistry{
+func newRegistry() outputterRegistry {
+	return outputterRegistry{
 		constructorRegistry: make(map[string]outputterConstructor),
 		configRegistry:      make(map[string]configConstructor),
 	}
 }
 
-func (r *OutputterRegistry) Register(name string, configGen configConstructor, constructor outputterConstructor) {
+func (r *outputterRegistry) Register(name string, configGen configConstructor, constructor outputterConstructor) {
 	r.constructorRegistry[name] = constructor
 	r.configRegistry[name] = configGen
 }

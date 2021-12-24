@@ -6,9 +6,9 @@ import (
 	"github.com/sinkingpoint/clogger/internal/clogger"
 )
 
+// An Inputter is a thing that is able to read messages from somewhere
 type Inputter interface {
 	Run(ctx context.Context, flushChan chan []clogger.Message) error
-	Clone() (Inputter, error)
 	Kill()
 }
 

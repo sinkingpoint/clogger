@@ -24,9 +24,7 @@ func TestJournalDInput(t *testing.T) {
 
 	flushChan := make(chan []clogger.Message)
 
-	journalDInput := inputs.JournalDInput{
-		Reader: mockJournalD,
-	}
+	journalDInput, _ := inputs.NewJournalDInputWithReader(inputs.RecvConfig{}, mockJournalD)
 
 	go journalDInput.Run(context.Background(), flushChan)
 

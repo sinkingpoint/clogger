@@ -5,25 +5,26 @@ import (
 	"os"
 
 	"github.com/sinkingpoint/clogger/internal/clogger"
-	"github.com/sinkingpoint/clogger/internal/outputs/format"
 	"github.com/sinkingpoint/clogger/internal/tracing"
 	"go.opentelemetry.io/otel/attribute"
 )
 
+// StdOutputterConfig is a shim around SendConfig for now
+// mainly so that we can extend it in the future if necessary
 type StdOutputterConfig struct {
 	SendConfig
-	Formatter format.Formatter
 }
 
+// StdOutputter is an Outputter that takes messages from the input stream
+// and pushes them to stdout (fd 0)
 type StdOutputter struct {
 	SendConfig
-	formatter format.Formatter
 }
 
+// NewStdOutputter constructs a new StdOutputter from the given Config
 func NewStdOutputter(conf StdOutputterConfig) (*StdOutputter, error) {
 	return &StdOutputter{
 		SendConfig: conf.SendConfig,
-		formatter:  conf.Formatter,
 	}, nil
 }
 
@@ -41,8 +42,9 @@ func (s *StdOutputter) FlushToOutput(ctx context.Context, messages []clogger.Mes
 
 	for i := range messages {
 		msg := &messages[i]
+		// Add in the timestamp so that it gets pushed
 		msg.ParsedFields["auth_timestamp"] = msg.MonoTimestamp
-		s, err := s.formatter.Format(msg)
+		s, err := s.Formatter.Format(msg)
 		if err != nil {
 			if firstError == nil {
 				return err
@@ -57,11 +59,4 @@ func (s *StdOutputter) FlushToOutput(ctx context.Context, messages []clogger.Mes
 	}
 
 	return firstError
-}
-
-func (s *StdOutputter) Clone() (Outputter, error) {
-	return &StdOutputter{
-		SendConfig: s.SendConfig,
-		formatter:  s.formatter,
-	}, nil
 }
