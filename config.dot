@@ -1,0 +1,6 @@
+digraph pipeline {
+  JournalD [type=journald]
+  ConsoleOutput [type=stdout]
+
+  JournalD -> ConsoleOutput [label="filter test values", filter_type=match key=test value=test]
+}

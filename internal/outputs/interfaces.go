@@ -2,6 +2,7 @@ package outputs
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	"github.com/sinkingpoint/clogger/internal/clogger"
@@ -9,25 +10,53 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
+const DEFAULT_BATCH_SIZE = 1000
+const DEFAULT_FLUSH_INTERVAL = time.Millisecond * 100
+
 type SendConfig struct {
 	FlushInterval time.Duration
 	BufferSize    int
 }
 
-type Sender interface {
+func NewSendConfigFromRaw(rawConf map[string]string) (SendConfig, error) {
+	conf := SendConfig{
+		FlushInterval: DEFAULT_FLUSH_INTERVAL,
+		BufferSize:    DEFAULT_BATCH_SIZE,
+	}
+
+	var err error
+	if s, ok := rawConf["flush_interval"]; ok {
+		conf.FlushInterval, err = time.ParseDuration(s)
+		if err != nil {
+			return SendConfig{}, err
+		}
+	}
+
+	if s, ok := rawConf["batch_size"]; ok {
+		conf.BufferSize, err = strconv.Atoi(s)
+		if err != nil {
+			return SendConfig{}, err
+		}
+	}
+
+	return conf, nil
+}
+
+type Outputter interface {
 	GetSendConfig() SendConfig
+	Clone() (Outputter, error)
 	FlushToOutput(ctx context.Context, messages []clogger.Message) error
 }
 
-type Send struct {
+type Sender struct {
 	SendConfig
-	sender        Sender
+	sender        Outputter
 	buffer        []clogger.Message
 	lastFlushTime time.Time
 }
 
-func NewSend(config SendConfig, logic Sender) *Send {
-	return &Send{
+func NewSend(config SendConfig, logic Outputter) *Sender {
+	return &Sender{
 		SendConfig:    config,
 		buffer:        make([]clogger.Message, 0, config.BufferSize),
 		lastFlushTime: time.Now(),
@@ -35,7 +64,7 @@ func NewSend(config SendConfig, logic Sender) *Send {
 	}
 }
 
-func (s *Send) queueMessages(ctx context.Context, messages []clogger.Message) {
+func (s *Sender) queueMessages(ctx context.Context, messages []clogger.Message) {
 	ctx, span := tracing.GetTracer().Start(ctx, "Send.queueMessages")
 	defer span.End()
 
@@ -55,7 +84,7 @@ func (s *Send) queueMessages(ctx context.Context, messages []clogger.Message) {
 	s.buffer = append(s.buffer, messages...)
 }
 
-func (s *Send) Flush(ctx context.Context, final bool) {
+func (s *Sender) Flush(ctx context.Context, final bool) {
 	ctx, span := tracing.GetTracer().Start(ctx, "Send.Flush")
 	defer span.End()
 
@@ -77,7 +106,7 @@ func (s *Send) Flush(ctx context.Context, final bool) {
 	}
 }
 
-func StartOutputter(inputChan chan []clogger.Message, send Sender, killChan chan bool) {
+func StartOutputter(inputChan chan []clogger.Message, send Outputter, killChan chan bool) {
 	s := NewSend(send.GetSendConfig(), send)
 	ticker := time.NewTicker(s.FlushInterval)
 outer:

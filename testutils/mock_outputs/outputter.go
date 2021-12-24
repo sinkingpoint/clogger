@@ -13,31 +13,46 @@ import (
 	outputs "github.com/sinkingpoint/clogger/internal/outputs"
 )
 
-// MockSender is a mock of Sender interface.
-type MockSender struct {
+// MockOutputter is a mock of Outputter interface.
+type MockOutputter struct {
 	ctrl     *gomock.Controller
-	recorder *MockSenderMockRecorder
+	recorder *MockOutputterMockRecorder
 }
 
-// MockSenderMockRecorder is the mock recorder for MockSender.
-type MockSenderMockRecorder struct {
-	mock *MockSender
+// MockOutputterMockRecorder is the mock recorder for MockOutputter.
+type MockOutputterMockRecorder struct {
+	mock *MockOutputter
 }
 
-// NewMockSender creates a new mock instance.
-func NewMockSender(ctrl *gomock.Controller) *MockSender {
-	mock := &MockSender{ctrl: ctrl}
-	mock.recorder = &MockSenderMockRecorder{mock}
+// NewMockOutputter creates a new mock instance.
+func NewMockOutputter(ctrl *gomock.Controller) *MockOutputter {
+	mock := &MockOutputter{ctrl: ctrl}
+	mock.recorder = &MockOutputterMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockSender) EXPECT() *MockSenderMockRecorder {
+func (m *MockOutputter) EXPECT() *MockOutputterMockRecorder {
 	return m.recorder
 }
 
+// Clone mocks base method.
+func (m *MockOutputter) Clone() (outputs.Outputter, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Clone")
+	ret0, _ := ret[0].(outputs.Outputter)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Clone indicates an expected call of Clone.
+func (mr *MockOutputterMockRecorder) Clone() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Clone", reflect.TypeOf((*MockOutputter)(nil).Clone))
+}
+
 // FlushToOutput mocks base method.
-func (m *MockSender) FlushToOutput(ctx context.Context, messages []clogger.Message) error {
+func (m *MockOutputter) FlushToOutput(ctx context.Context, messages []clogger.Message) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FlushToOutput", ctx, messages)
 	ret0, _ := ret[0].(error)
@@ -45,13 +60,13 @@ func (m *MockSender) FlushToOutput(ctx context.Context, messages []clogger.Messa
 }
 
 // FlushToOutput indicates an expected call of FlushToOutput.
-func (mr *MockSenderMockRecorder) FlushToOutput(ctx, messages interface{}) *gomock.Call {
+func (mr *MockOutputterMockRecorder) FlushToOutput(ctx, messages interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FlushToOutput", reflect.TypeOf((*MockSender)(nil).FlushToOutput), ctx, messages)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FlushToOutput", reflect.TypeOf((*MockOutputter)(nil).FlushToOutput), ctx, messages)
 }
 
 // GetSendConfig mocks base method.
-func (m *MockSender) GetSendConfig() outputs.SendConfig {
+func (m *MockOutputter) GetSendConfig() outputs.SendConfig {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetSendConfig")
 	ret0, _ := ret[0].(outputs.SendConfig)
@@ -59,7 +74,7 @@ func (m *MockSender) GetSendConfig() outputs.SendConfig {
 }
 
 // GetSendConfig indicates an expected call of GetSendConfig.
-func (mr *MockSenderMockRecorder) GetSendConfig() *gomock.Call {
+func (mr *MockOutputterMockRecorder) GetSendConfig() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSendConfig", reflect.TypeOf((*MockSender)(nil).GetSendConfig))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSendConfig", reflect.TypeOf((*MockOutputter)(nil).GetSendConfig))
 }

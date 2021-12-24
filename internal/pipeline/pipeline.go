@@ -9,43 +9,73 @@ import (
 	"github.com/sinkingpoint/clogger/internal/outputs"
 )
 
-type Pipeline struct {
-	KillChannel chan bool
-	Inputs      []inputs.Inputter
-	Outputs     []outputs.Sender
+type assignedMessage struct {
+	src string
+	msg []clogger.Message
 }
 
-func NewPipeline(inputs []inputs.Inputter, outputs []outputs.Sender) *Pipeline {
+type Pipeline struct {
+	KillChannel chan bool
+	Inputs      map[string]inputs.Inputter
+	Outputs     map[string]outputs.Outputter
+	Pipes       map[string][]string
+}
+
+func NewPipeline(inputs map[string]inputs.Inputter, outputs map[string]outputs.Outputter, pipes map[string][]string) *Pipeline {
 	return &Pipeline{
 		Inputs:      inputs,
 		Outputs:     outputs,
+		Pipes:       pipes,
 		KillChannel: make(chan bool),
 	}
 }
 
 func (p *Pipeline) Run() sync.WaitGroup {
-	inputChannel := make(chan []clogger.Message)
 	wg := sync.WaitGroup{}
-	for i := range p.Inputs {
+	inputPipes := make(map[string]chan []clogger.Message, len(p.Inputs))
+	outputPipes := make(map[string]chan []clogger.Message, len(p.Outputs))
+	outputKillPipes := make(map[string]chan bool, len(p.Outputs))
+	inputAggKillPipes := make(map[string]chan bool, len(p.Inputs))
+
+	aggInputChannel := make(chan assignedMessage)
+
+	for name, input := range p.Inputs {
+		inputPipes[name] = make(chan []clogger.Message)
+
 		wg.Add(1)
-		go func(input inputs.Inputter) {
+		go func(input inputs.Inputter, inputChannel chan []clogger.Message) {
 			defer wg.Done()
 			input.Run(context.Background(), inputChannel)
-		}(p.Inputs[i])
+		}(input, inputPipes[name])
+
+		wg.Add(1)
+		inputAggKillPipes[name] = make(chan bool)
+		go func(name string, inputPipe chan []clogger.Message, kill chan bool) {
+			defer wg.Done()
+		outer:
+			for {
+				select {
+				case <-kill:
+					break outer
+				case msg := <-inputPipe:
+					aggInputChannel <- assignedMessage{
+						name,
+						msg,
+					}
+				}
+			}
+
+		}(name, inputPipes[name], inputAggKillPipes[name])
 	}
 
-	outputChans := make([]chan []clogger.Message, len(p.Outputs))
-	killChannels := make([]chan bool, len(p.Outputs))
-
-	for i := range p.Outputs {
+	for name, output := range p.Outputs {
+		outputPipes[name] = make(chan []clogger.Message)
+		outputKillPipes[name] = make(chan bool)
 		wg.Add(1)
-		outputChans[i] = make(chan []clogger.Message)
-		killChannels[i] = make(chan bool)
-
-		go func(output outputs.Sender, flush chan []clogger.Message, kill chan bool) {
+		go func(output outputs.Outputter, pipe chan []clogger.Message, kill chan bool) {
 			defer wg.Done()
-			outputs.StartOutputter(flush, output, kill)
-		}(p.Outputs[i], outputChans[i], killChannels[i])
+			outputs.StartOutputter(pipe, output, kill)
+		}(output, outputPipes[name], outputKillPipes[name])
 	}
 
 	wg.Add(1)
@@ -55,14 +85,24 @@ func (p *Pipeline) Run() sync.WaitGroup {
 		for {
 			select {
 			case <-p.KillChannel:
-				// TODO: Pass the Kill signal to all the running things
-				for i := range p.Outputs {
-					killChannels[i] <- true
+				for _, input := range p.Inputs {
+					input.Kill()
 				}
+
+				for _, c := range inputAggKillPipes {
+					c <- true
+				}
+
+				for _, c := range outputKillPipes {
+					c <- true
+				}
+
 				break outer
-			case message := <-inputChannel:
-				for i := range outputChans {
-					outputChans[i] <- message
+			case msg := <-aggInputChannel:
+				if pipes, ok := p.Pipes[msg.src]; ok {
+					for _, to := range pipes {
+						outputPipes[to] <- msg.msg
+					}
 				}
 			}
 		}

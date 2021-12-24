@@ -70,3 +70,10 @@ func (s *StdOutputter) FlushToOutput(ctx context.Context, messages []clogger.Mes
 
 	return firstError
 }
+
+func (s *StdOutputter) Clone() (Outputter, error) {
+	return &StdOutputter{
+		SendConfig: s.SendConfig,
+		formatter:  s.formatter,
+	}, nil
+}

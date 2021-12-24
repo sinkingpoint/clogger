@@ -38,7 +38,7 @@ func TestPipeline(t *testing.T) {
 		return nil
 	}).MaxTimes(1)
 
-	mockOutput := mock_outputs.NewMockSender(ctrl)
+	mockOutput := mock_outputs.NewMockOutputter(ctrl)
 	mockOutput.EXPECT().GetSendConfig().Return(outputs.SendConfig{
 		FlushInterval: time.Millisecond * 100,
 		BufferSize:    3,
@@ -51,10 +51,12 @@ func TestPipeline(t *testing.T) {
 		return nil
 	}).MinTimes(1).MaxTimes(1)
 
-	pipeline := pipeline.NewPipeline([]inputs.Inputter{
-		mockInput,
-	}, []outputs.Sender{
-		mockOutput,
+	pipeline := pipeline.NewPipeline(map[string]inputs.Inputter{
+		"test_input": mockInput,
+	}, map[string]outputs.Outputter{
+		"test_output": mockOutput,
+	}, map[string][]string{
+		"test_input": {"test_output"},
 	})
 
 	pipeline.Run()

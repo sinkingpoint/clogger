@@ -4,27 +4,29 @@ import (
 	"fmt"
 )
 
-type outputterConstructor = func(rawConf interface{}) (Sender, error)
-type configConstructor = func(map[string]interface{}) (interface{}, error)
+type outputterConstructor = func(rawConf interface{}) (Outputter, error)
+type configConstructor = func(map[string]string) (interface{}, error)
 
-var OutputsRegistry = NewRegistry()
+var outputsRegistry = NewRegistry()
 
 func init() {
-	OutputsRegistry.Register("stdout", func(rawConf map[string]interface{}) (interface{}, error) {
+	outputsRegistry.Register("stdout", func(rawConf map[string]string) (interface{}, error) {
 		if format, ok := rawConf["format"]; ok {
-			if s, ok := format.(string); ok {
-				return StdOutputterConfig{
-					Formatter: s,
-				}, nil
-			} else {
-				return nil, fmt.Errorf("invalid formatter specified: `%s`", format)
-			}
+			return StdOutputterConfig{
+				Formatter: format,
+			}, nil
+		}
+
+		conf, err := NewSendConfigFromRaw(rawConf)
+		if err != nil {
+			return nil, err
 		}
 
 		return StdOutputterConfig{
-			Formatter: "json",
+			SendConfig: conf,
+			Formatter:  "json",
 		}, nil
-	}, func(rawConf interface{}) (Sender, error) {
+	}, func(rawConf interface{}) (Outputter, error) {
 		conf, ok := rawConf.(StdOutputterConfig)
 		if !ok {
 			return nil, fmt.Errorf("invalid config passed to StdOutputter")
@@ -49,4 +51,21 @@ func NewRegistry() OutputterRegistry {
 func (r *OutputterRegistry) Register(name string, configGen configConstructor, constructor outputterConstructor) {
 	r.constructorRegistry[name] = constructor
 	r.configRegistry[name] = configGen
+}
+
+func Construct(name string, config map[string]string) (Outputter, error) {
+	if configMaker, ok := outputsRegistry.configRegistry[name]; ok {
+		config, err := configMaker(config)
+		if err != nil {
+			return nil, err
+		}
+
+		if inputMaker, ok := outputsRegistry.constructorRegistry[name]; ok {
+			return inputMaker(config)
+		} else {
+			return nil, fmt.Errorf("failed to find outputter `%s`", name)
+		}
+	} else {
+		return nil, fmt.Errorf("failed to find outputter `%s`", name)
+	}
 }

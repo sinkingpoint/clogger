@@ -16,7 +16,8 @@ type JournalDReader interface {
 }
 
 type CoreOSJournalDReader struct {
-	reader *sdjournal.Journal
+	reader      *sdjournal.Journal
+	killChannel chan bool
 }
 
 func NewCoreOSJournalDReader() (*CoreOSJournalDReader, error) {
@@ -32,7 +33,8 @@ func NewCoreOSJournalDReader() (*CoreOSJournalDReader, error) {
 	}
 
 	return &CoreOSJournalDReader{
-		reader: reader,
+		reader:      reader,
+		killChannel: make(chan bool),
 	}, nil
 }
 
@@ -95,15 +97,29 @@ func NewJournalDInput(conf RecvConfig) (*JournalDInput, error) {
 
 func (j *JournalDInput) Run(ctx context.Context, flushChan chan []clogger.Message) error {
 	defer j.Reader.Close()
+outer:
 	for {
-		msg, err := j.Reader.GetEntry(ctx)
-		if err != nil {
-			log.Err(err).Msg("Failed to read from JournalD")
-			continue
-		}
+		select {
+		case <-j.KillChannel:
+			break outer
+		default:
+			msg, err := j.Reader.GetEntry(ctx)
+			if err != nil {
+				log.Err(err).Msg("Failed to read from JournalD")
+				continue
+			}
 
-		flushChan <- []clogger.Message{msg}
+			flushChan <- []clogger.Message{msg}
+		}
 	}
 
 	return nil
+}
+
+func (j *JournalDInput) Kill() {
+	j.KillChannel <- true
+}
+
+func (j *JournalDInput) Clone() (Inputter, error) {
+	return NewJournalDInput(j.RecvConfig)
 }

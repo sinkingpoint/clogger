@@ -8,6 +8,8 @@ import (
 
 type Inputter interface {
 	Run(ctx context.Context, flushChan chan []clogger.Message) error
+	Clone() (Inputter, error)
+	Kill()
 }
 
 type RecvConfig struct {
