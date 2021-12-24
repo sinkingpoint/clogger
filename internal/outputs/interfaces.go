@@ -14,6 +14,20 @@ import (
 const DEFAULT_BATCH_SIZE = 1000
 const DEFAULT_FLUSH_INTERVAL = time.Millisecond * 100
 
+type OutputResult int
+
+const (
+	// OUTPUT_SUCCESS indicates that the data was sucessfully sent to the output
+	OUTPUT_SUCCESS OutputResult = iota
+
+	// OUTPUT_TRANSIENT_FAILURE indicates that we failed to send data to the output, but should retry (with exponential backoff)
+	OUTPUT_TRANSIENT_FAILURE
+
+	// OUTPUT_LONG_FAILURE indicates that we failed to send data to the output and we should
+	// buffer it to the buffer destination, if configured - this failure is likely to take a while to resolve
+	OUTPUT_LONG_FAILURE
+)
+
 // SendConfig is a config that specifies the base fields
 // for all outputs
 type SendConfig struct {
@@ -67,7 +81,7 @@ type Outputter interface {
 	GetSendConfig() SendConfig
 
 	// FlushToOutput takes a buffer of messages, and pushes them somewhere
-	FlushToOutput(ctx context.Context, messages []clogger.Message) error
+	FlushToOutput(ctx context.Context, messages []clogger.Message) (OutputResult, error)
 }
 
 // Sender encapsulates the functionality that all Outputters get for free i.e. Buffering
@@ -95,16 +109,14 @@ func (s *Sender) queueMessages(ctx context.Context, messages []clogger.Message) 
 
 	span.SetAttributes(attribute.Int("num_new_messages", len(messages)))
 
-	// If the number of messages is too big for the buffer, chunk
-	// it up into buffer sized bits, Flushing inbetween
 	for remainingRoom := cap(s.buffer) - len(s.buffer); remainingRoom < len(messages); {
+		// Chunk the data into buffer sized pieces
 		s.buffer = append(s.buffer, messages[:remainingRoom]...)
 		s.Flush(ctx, false)
 		messages = messages[remainingRoom:]
 		s.buffer = s.buffer[:0]
 	}
 
-	// Once we're under the buffer limit, just add the rest to the buffer
 	s.buffer = append(s.buffer, messages...)
 }
 
@@ -124,7 +136,6 @@ func (s *Sender) Flush(ctx context.Context, final bool) {
 		return
 	}
 
-	// If we have messages, send them
 	if len(s.buffer) > 0 {
 		s.sender.FlushToOutput(ctx, s.buffer)
 		s.buffer = s.buffer[:0]

@@ -36,27 +36,13 @@ func (m *MockOutputter) EXPECT() *MockOutputterMockRecorder {
 	return m.recorder
 }
 
-// Clone mocks base method.
-func (m *MockOutputter) Clone() (outputs.Outputter, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Clone")
-	ret0, _ := ret[0].(outputs.Outputter)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Clone indicates an expected call of Clone.
-func (mr *MockOutputterMockRecorder) Clone() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Clone", reflect.TypeOf((*MockOutputter)(nil).Clone))
-}
-
 // FlushToOutput mocks base method.
-func (m *MockOutputter) FlushToOutput(ctx context.Context, messages []clogger.Message) error {
+func (m *MockOutputter) FlushToOutput(ctx context.Context, messages []clogger.Message) (outputs.OutputResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FlushToOutput", ctx, messages)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(outputs.OutputResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // FlushToOutput indicates an expected call of FlushToOutput.

@@ -32,7 +32,7 @@ func (s *StdOutputter) GetSendConfig() SendConfig {
 	return s.SendConfig
 }
 
-func (s *StdOutputter) FlushToOutput(ctx context.Context, messages []clogger.Message) error {
+func (s *StdOutputter) FlushToOutput(ctx context.Context, messages []clogger.Message) (OutputResult, error) {
 	_, span := tracing.GetTracer().Start(ctx, "StdOutputter.FlushToOutput")
 	defer span.End()
 
@@ -47,7 +47,7 @@ func (s *StdOutputter) FlushToOutput(ctx context.Context, messages []clogger.Mes
 		s, err := s.Formatter.Format(msg)
 		if err != nil {
 			if firstError == nil {
-				return err
+				firstError = err
 			}
 
 			continue
@@ -58,5 +58,7 @@ func (s *StdOutputter) FlushToOutput(ctx context.Context, messages []clogger.Mes
 		os.Stdout.Write([]byte("\n"))
 	}
 
-	return firstError
+	// OUTPUT_SUCCESS here so that we don't retry - it's likely that the errors are bad data, or a bug in the formatter
+	// either way, retrying would be pointless
+	return OUTPUT_SUCCESS, firstError
 }

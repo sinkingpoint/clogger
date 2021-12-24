@@ -10,7 +10,6 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	clogger "github.com/sinkingpoint/clogger/internal/clogger"
-	inputs "github.com/sinkingpoint/clogger/internal/inputs"
 )
 
 // MockInputter is a mock of Inputter interface.
@@ -34,21 +33,6 @@ func NewMockInputter(ctrl *gomock.Controller) *MockInputter {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockInputter) EXPECT() *MockInputterMockRecorder {
 	return m.recorder
-}
-
-// Clone mocks base method.
-func (m *MockInputter) Clone() (inputs.Inputter, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Clone")
-	ret0, _ := ret[0].(inputs.Inputter)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Clone indicates an expected call of Clone.
-func (mr *MockInputterMockRecorder) Clone() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Clone", reflect.TypeOf((*MockInputter)(nil).Clone))
 }
 
 // Kill mocks base method.
