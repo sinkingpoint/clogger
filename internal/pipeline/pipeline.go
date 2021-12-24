@@ -35,14 +35,17 @@ func (p *Pipeline) Run() sync.WaitGroup {
 	}
 
 	outputChans := make([]chan []clogger.Message, len(p.Outputs))
+	killChannels := make([]chan bool, len(p.Outputs))
 
 	for i := range p.Outputs {
 		wg.Add(1)
 		outputChans[i] = make(chan []clogger.Message)
-		go func(output outputs.Sender, flush chan []clogger.Message) {
+		killChannels[i] = make(chan bool)
+
+		go func(output outputs.Sender, flush chan []clogger.Message, kill chan bool) {
 			defer wg.Done()
-			outputs.StartOutputter(flush, output)
-		}(p.Outputs[i], outputChans[i])
+			outputs.StartOutputter(flush, output, kill)
+		}(p.Outputs[i], outputChans[i], killChannels[i])
 	}
 
 	wg.Add(1)
@@ -53,6 +56,9 @@ func (p *Pipeline) Run() sync.WaitGroup {
 			select {
 			case <-p.KillChannel:
 				// TODO: Pass the Kill signal to all the running things
+				for i := range p.Outputs {
+					killChannels[i] <- true
+				}
 				break outer
 			case message := <-inputChannel:
 				for i := range outputChans {

@@ -12,7 +12,6 @@ import (
 type SendConfig struct {
 	FlushInterval time.Duration
 	BufferSize    int
-	InputChan     chan []clogger.Message
 }
 
 type Sender interface {
@@ -22,7 +21,6 @@ type Sender interface {
 
 type Send struct {
 	SendConfig
-	KillChannel   chan bool
 	sender        Sender
 	buffer        []clogger.Message
 	lastFlushTime time.Time
@@ -31,7 +29,6 @@ type Send struct {
 func NewSend(config SendConfig, logic Sender) *Send {
 	return &Send{
 		SendConfig:    config,
-		KillChannel:   make(chan bool),
 		buffer:        make([]clogger.Message, 0, config.BufferSize),
 		lastFlushTime: time.Now(),
 		sender:        logic,
@@ -80,13 +77,13 @@ func (s *Send) Flush(ctx context.Context, final bool) {
 	}
 }
 
-func StartOutputter(inputChan chan []clogger.Message, send Sender) {
+func StartOutputter(inputChan chan []clogger.Message, send Sender, killChan chan bool) {
 	s := NewSend(send.GetSendConfig(), send)
 	ticker := time.NewTicker(s.FlushInterval)
 outer:
 	for {
 		select {
-		case <-s.KillChannel:
+		case <-killChan:
 			s.Flush(context.Background(), true)
 			break outer
 		case <-ticker.C:
