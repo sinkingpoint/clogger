@@ -11,8 +11,11 @@ type Formatter interface {
 }
 
 func GetFormatterFromString(s string) (Formatter, error) {
-	if s == "json" {
+	switch s {
+	case "json":
 		return &JSONFormatter{}, nil
+	case "console":
+		return &ConsoleFormatter{}, nil
 	}
 
 	return nil, fmt.Errorf("no formatter named `%s` found", s)

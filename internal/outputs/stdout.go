@@ -2,7 +2,6 @@ package outputs
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	"github.com/sinkingpoint/clogger/internal/clogger"
@@ -43,7 +42,6 @@ func (s *StdOutputter) GetSendConfig() SendConfig {
 }
 
 func (s *StdOutputter) FlushToOutput(ctx context.Context, messages []clogger.Message) error {
-	fmt.Println("Context ", ctx)
 	_, span := tracing.GetTracer().Start(ctx, "StdOutputter.FlushToOutput")
 	defer span.End()
 

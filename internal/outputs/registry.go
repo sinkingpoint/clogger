@@ -11,15 +11,16 @@ var outputsRegistry = NewRegistry()
 
 func init() {
 	outputsRegistry.Register("stdout", func(rawConf map[string]string) (interface{}, error) {
-		if format, ok := rawConf["format"]; ok {
-			return StdOutputterConfig{
-				Formatter: format,
-			}, nil
-		}
-
 		conf, err := NewSendConfigFromRaw(rawConf)
 		if err != nil {
 			return nil, err
+		}
+
+		if format, ok := rawConf["format"]; ok {
+			return StdOutputterConfig{
+				SendConfig: conf,
+				Formatter:  format,
+			}, nil
 		}
 
 		return StdOutputterConfig{
@@ -54,6 +55,7 @@ func (r *OutputterRegistry) Register(name string, configGen configConstructor, c
 }
 
 func Construct(name string, config map[string]string) (Outputter, error) {
+	fmt.Println("Constructing ", name, " with config ", config)
 	if configMaker, ok := outputsRegistry.configRegistry[name]; ok {
 		config, err := configMaker(config)
 		if err != nil {
