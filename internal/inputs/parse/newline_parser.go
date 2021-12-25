@@ -16,7 +16,7 @@ func (j *NewlineParser) ParseStream(bytes io.ReadCloser, flushChan chan []clogge
 		line := scanner.Text()
 		flushChan <- []clogger.Message{
 			{
-				MonoTimestamp: uint64(time.Now().Unix()),
+				MonoTimestamp: time.Now().UnixNano(),
 				ParsedFields: map[string]interface{}{
 					clogger.MESSAGE_FIELD: line,
 				},

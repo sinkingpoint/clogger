@@ -89,7 +89,7 @@ func (c *coreOSJournalDReader) GetEntry(ctx context.Context) (clogger.Message, e
 	}
 
 	return clogger.Message{
-		MonoTimestamp: entry.MonotonicTimestamp,
+		MonoTimestamp: int64(entry.MonotonicTimestamp * 1000),
 		ParsedFields:  m2,
 	}, nil
 }

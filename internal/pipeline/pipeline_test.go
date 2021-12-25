@@ -23,15 +23,12 @@ func TestPipeline(t *testing.T) {
 		input <- []clogger.Message{
 			{
 				MonoTimestamp: 0,
-				RawMessage:    "test",
 			},
 			{
 				MonoTimestamp: 1,
-				RawMessage:    "test2",
 			},
 			{
 				MonoTimestamp: 2,
-				RawMessage:    "test3",
 			},
 		}
 

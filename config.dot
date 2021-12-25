@@ -1,5 +1,5 @@
 digraph pipeline {
-  Socket [type=socket]
+  Socket [type=socket parser=json]
   ConsoleOutput [type=stdout format=console color=true]
 
   Socket -> ConsoleOutput [label="filter test values", filter_type=match key=test value=test]

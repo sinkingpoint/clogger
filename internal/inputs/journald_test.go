@@ -18,7 +18,6 @@ func TestJournalDInput(t *testing.T) {
 	mockJournalD.EXPECT().GetEntry(context.Background()).DoAndReturn(func(ctx context.Context) (clogger.Message, error) {
 		return clogger.Message{
 			MonoTimestamp: 10,
-			RawMessage:    "test",
 		}, nil
 	}).MinTimes(2)
 
