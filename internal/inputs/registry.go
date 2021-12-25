@@ -15,21 +15,6 @@ type inputterConstructor = func(rawConf interface{}) (Inputter, error)
 
 var inputsRegistry = newRegistry()
 
-func init() {
-	// JournalDInput that reads data from the journald stream
-	inputsRegistry.Register("journald", func(rawConf map[string]string) (interface{}, error) {
-		conf := NewRecvConfig()
-
-		return conf, nil
-	}, func(conf interface{}) (Inputter, error) {
-		if c, ok := conf.(RecvConfig); ok {
-			return NewJournalDInput(c)
-		}
-
-		return nil, fmt.Errorf("invalid config passed to journald input")
-	})
-}
-
 // inputterRegistry is a registry of functions that can be used to construct Inputters
 // from string configs
 type inputterRegistry struct {

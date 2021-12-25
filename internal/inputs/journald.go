@@ -2,6 +2,7 @@ package inputs
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/coreos/go-systemd/v22/sdjournal"
 	"github.com/sinkingpoint/clogger/internal/clogger"
@@ -155,4 +156,19 @@ outer:
 
 func (j *JournalDInput) Kill() {
 	j.KillChannel <- true
+}
+
+func init() {
+	// JournalDInput that reads data from the journald stream
+	inputsRegistry.Register("journald", func(rawConf map[string]string) (interface{}, error) {
+		conf := NewRecvConfig()
+
+		return conf, nil
+	}, func(conf interface{}) (Inputter, error) {
+		if c, ok := conf.(RecvConfig); ok {
+			return NewJournalDInput(c)
+		}
+
+		return nil, fmt.Errorf("invalid config passed to journald input")
+	})
 }

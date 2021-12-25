@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/rs/zerolog/log"
 	"github.com/sinkingpoint/clogger/internal/clogger"
 	"github.com/sinkingpoint/clogger/internal/inputs"
 	"github.com/sinkingpoint/clogger/internal/outputs"
@@ -45,7 +46,10 @@ func (p *Pipeline) Run() sync.WaitGroup {
 		wg.Add(1)
 		go func(input inputs.Inputter, inputChannel chan []clogger.Message) {
 			defer wg.Done()
-			input.Run(context.Background(), inputChannel)
+			err := input.Run(context.Background(), inputChannel)
+			if err != nil {
+				log.Err(err).Str("input_name", name).Msg("Failed to start inputter")
+			}
 		}(input, inputPipes[name])
 
 		wg.Add(1)

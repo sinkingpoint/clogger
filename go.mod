@@ -28,11 +28,10 @@ require (
 )
 
 require (
-	github.com/awalterschulze/gographviz v2.0.3+incompatible // indirect
+	github.com/awalterschulze/gographviz v2.0.3+incompatible
 	github.com/coreos/go-systemd/v22 v22.3.2
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-logr/logr v1.2.1 // indirect
 	github.com/go-logr/stdr v1.2.0 // indirect
 	github.com/golang/mock v1.6.0
-	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
 )

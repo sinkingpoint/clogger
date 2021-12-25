@@ -9,7 +9,6 @@ const DEFAULT_FLUSH_DURATION = 10 * time.Millisecond
 const MESSAGE_FIELD = "message"
 
 type Message struct {
-	MonoTimestamp uint64
-	ParsedFields  map[string]interface{}
-	RawMessage    string
+	MonoTimestamp uint64                 `json:"timestamp"`
+	ParsedFields  map[string]interface{} `json:,inline`
 }

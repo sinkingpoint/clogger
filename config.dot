@@ -1,6 +1,6 @@
 digraph pipeline {
-  JournalD [type=journald]
+  Socket [type=socket]
   ConsoleOutput [type=stdout format=console color=true]
 
-  JournalD -> ConsoleOutput [label="filter test values", filter_type=match key=test value=test]
+  Socket -> ConsoleOutput [label="filter test values", filter_type=match key=test value=test]
 }
