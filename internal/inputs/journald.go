@@ -136,8 +136,6 @@ outer:
 
 			if err != nil {
 				log.Err(err).Msg("Failed to read from JournalD")
-
-				// Just continue if we get an error I guess
 				continue
 			}
 

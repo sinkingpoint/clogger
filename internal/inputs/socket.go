@@ -59,7 +59,9 @@ func (j *SocketInput) Kill() {
 
 func (s *SocketInput) handleConn(conn net.Conn, flush chan []clogger.Message) {
 	defer conn.Close()
-	s.conf.Parser.ParseStream(conn, flush)
+	if err := s.conf.Parser.ParseStream(conn, flush); err != nil {
+		log.Debug().Err(err).Msg("Failed to parse incoming stream")
+	}
 }
 
 func (s *SocketInput) Run(ctx context.Context, flushChan chan []clogger.Message) error {

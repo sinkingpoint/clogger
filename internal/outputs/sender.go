@@ -40,26 +40,39 @@ func NewSender(config SendConfig, logic Outputter) *Sender {
 	}
 }
 
-// queueMessages takes the given messages and appends them to the buffer,
+// QueueMessages takes the given messages and appends them to the buffer,
 // flushing as necessary
-func (s *Sender) queueMessages(ctx context.Context, messages []clogger.Message) {
-	ctx, span := tracing.GetTracer().Start(ctx, "Send.queueMessages")
+func (s *Sender) QueueMessages(ctx context.Context, messages []clogger.Message) {
+	ctx, span := tracing.GetTracer().Start(ctx, "Sender.queueMessages")
 	defer span.End()
 
-	span.SetAttributes(attribute.Int("num_new_messages", len(messages)))
+	span.SetAttributes(
+		attribute.Int("buffer_size", len(s.buffer)),
+		attribute.Int("num_new_messages", len(messages)),
+		attribute.Int("remaining_room", cap(s.buffer)-len(s.buffer)),
+	)
 
-	for remainingRoom := cap(s.buffer) - len(s.buffer); remainingRoom < len(messages); {
+	chunks := 1
+
+	for remainingRoom := cap(s.buffer) - len(s.buffer); remainingRoom < len(messages); remainingRoom = cap(s.buffer) - len(s.buffer) {
 		// Chunk the data into buffer sized pieces
+		chunks += 1
 		s.buffer = append(s.buffer, messages[:remainingRoom]...)
 		s.Flush(ctx, false)
 		messages = messages[remainingRoom:]
 	}
+
+	span.SetAttributes(attribute.Int("chunks", chunks))
 
 	s.buffer = append(s.buffer, messages...)
 }
 
 // handleLongFailure handles the buffer in the event that the main sender fails
 func (s *Sender) handleLongFailure(ctx context.Context) error {
+	_, span := tracing.GetTracer().Start(ctx, "Sender.handleLongFailure")
+	defer span.End()
+	span.SetAttributes(attribute.Bool("has_bufferchannel", s.BufferChannel != nil), attribute.Int("buffer_size", len(s.buffer)))
+
 	s.currentState = OUTPUT_LONG_FAILURE
 
 	if s.BufferChannel != nil {
@@ -74,6 +87,10 @@ func (s *Sender) handleLongFailure(ctx context.Context) error {
 // doExponentialRetry handles the case where we have transient failures that can be retried
 // Note: This has the potential to cause double counting of logs (at least once delivery)
 func (s *Sender) doExponentialRetry(ctx context.Context) error {
+	ctx, span := tracing.GetTracer().Start(ctx, "Sender.doExponentialRetry")
+	defer span.End()
+
+	span.SetAttributes(attribute.Int("buffer_size", len(s.buffer)))
 	// start at one because we assume we've already done one attempt at flushing
 	// to get here
 	backoffTime := time.Millisecond * 100
@@ -88,6 +105,7 @@ func (s *Sender) doExponentialRetry(ctx context.Context) error {
 
 		switch result {
 		case OUTPUT_SUCCESS:
+			span.SetAttributes(attribute.Int("success_after", i))
 			s.buffer = s.buffer[:0]
 			s.lastFlushTime = time.Now()
 			s.currentState = OUTPUT_SUCCESS
@@ -105,13 +123,13 @@ func (s *Sender) doExponentialRetry(ctx context.Context) error {
 
 // Flush flushes the current buffer to the output stream
 func (s *Sender) Flush(ctx context.Context, final bool) {
-	ctx, span := tracing.GetTracer().Start(ctx, "Send.Flush")
+	ctx, span := tracing.GetTracer().Start(ctx, "Sender.Flush")
 	defer span.End()
 
 	span.SetAttributes(
 		attribute.Bool("final", final),
 		attribute.String("last_flush_time", s.lastFlushTime.Format(time.RFC3339)),
-		attribute.Int("messages_in_queue", len(s.buffer)),
+		attribute.Int("buffer_size", len(s.buffer)),
 	)
 
 	enoughTimeSinceLastFlush := time.Since(s.lastFlushTime) >= s.FlushInterval

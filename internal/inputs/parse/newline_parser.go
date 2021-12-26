@@ -24,7 +24,5 @@ func (j *NewlineParser) ParseStream(bytes io.ReadCloser, flushChan chan []clogge
 		}
 	}
 
-	close(flushChan)
-
 	return scanner.Err()
 }

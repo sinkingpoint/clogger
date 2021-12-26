@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/rs/zerolog/log"
 	"github.com/sinkingpoint/clogger/internal/clogger"
 	"github.com/sinkingpoint/clogger/internal/outputs/format"
 )
@@ -95,7 +96,9 @@ outer:
 		case <-ticker.C:
 			s.Flush(context.Background(), false)
 		case messages := <-inputChan:
-			s.queueMessages(context.Background(), messages)
+			s.QueueMessages(context.Background(), messages)
 		}
 	}
+
+	log.Warn().Msg("Outputter Exited")
 }

@@ -5,7 +5,6 @@ import (
 	"io"
 	"time"
 
-	"github.com/rs/zerolog/log"
 	"github.com/sinkingpoint/clogger/internal/clogger"
 )
 
@@ -18,7 +17,7 @@ func (j *JSONParser) ParseStream(bytes io.ReadCloser, flushChan chan []clogger.M
 		err := dec.Decode(&rawMessage)
 		if err != nil {
 			if err != io.EOF {
-				log.Err(err).Msg("Failed to read from stream")
+				return err
 			}
 			break
 		}

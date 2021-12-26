@@ -12,8 +12,7 @@ func main() {
 
 	// tracing.InitTracing(tracing.TracingConfig{
 	// 	ServiceName:  "clogger",
-	// 	SamplingRate: 1,
-	// 	Debug:        true,
+	// 	SamplingRate: 0.1,
 	// })
 
 	pipeline, err := config.LoadConfigFile("config.dot")

@@ -2,9 +2,9 @@ package tracing
 
 import (
 	"context"
-	"log"
 	"os"
 
+	"github.com/rs/zerolog/log"
 	"go.opentelemetry.io/contrib/propagators/b3"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
@@ -38,7 +38,7 @@ type TracingConfig struct {
 	Propagator propagation.TextMapPropagator
 }
 
-func InitTracing(config TracingConfig) {
+func InitTracing(config TracingConfig) *tracesdk.TracerProvider {
 	var sampler tracesdk.Sampler
 
 	// Treat > 1 as 1 and < 0 as 0
@@ -62,8 +62,10 @@ func InitTracing(config TracingConfig) {
 	var exporter tracesdk.SpanExporter
 	var err error
 	if config.Debug || (apiKey == "" || dataset == "") {
+		log.Info().Bool("debug", config.Debug).Msg("Initializing stdout tracing")
 		exporter, err = stdouttrace.New(stdouttrace.WithPrettyPrint())
 	} else {
+		log.Info().Bool("debug", config.Debug).Msg("Initializing honeycomb tracing")
 		client := otlptracehttp.NewClient(
 			otlptracehttp.WithHeaders(
 				map[string]string{
@@ -74,13 +76,10 @@ func InitTracing(config TracingConfig) {
 			otlptracehttp.WithEndpoint("api.honeycomb.io:443"),
 		)
 		exporter, err = otlptrace.New(context.Background(), client)
-		if err != nil {
-			log.Fatalf("creating OTLP trace exporter: %v", err)
-		}
 	}
 
 	if err != nil {
-		log.Fatalf("Failed to initialise tracing")
+		log.Info().Bool("debug", config.Debug).Err(err).Msg("Error initializing tracing")
 	}
 
 	tp := tracesdk.NewTracerProvider(
@@ -93,4 +92,6 @@ func InitTracing(config TracingConfig) {
 	)
 
 	otel.SetTracerProvider(tp)
+
+	return tp
 }
