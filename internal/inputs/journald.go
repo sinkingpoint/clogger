@@ -129,7 +129,7 @@ func (j *JournalDInput) Run(ctx context.Context, flushChan chan []clogger.Messag
 outer:
 	for {
 		select {
-		case <-j.KillChannel:
+		case <-j.killChannel:
 			break outer
 		default:
 			msg, err := j.reader.GetEntry(ctx)
@@ -153,7 +153,7 @@ outer:
 }
 
 func (j *JournalDInput) Kill() {
-	j.KillChannel <- true
+	j.killChannel <- true
 }
 
 func init() {

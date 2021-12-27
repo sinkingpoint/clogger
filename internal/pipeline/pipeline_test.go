@@ -19,6 +19,7 @@ func TestPipeline(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockInput := mock_inputs.NewMockInputter(ctrl)
+	mockInput.EXPECT().Kill().Times(1)
 	mockInput.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, input chan []clogger.Message) error {
 		input <- []clogger.Message{
 			{
@@ -39,14 +40,14 @@ func TestPipeline(t *testing.T) {
 	mockOutput.EXPECT().GetSendConfig().Return(outputs.SendConfig{
 		FlushInterval: time.Millisecond * 100,
 		BatchSize:     3,
-	}).MinTimes(1).MaxTimes(1)
+	}).Times(1)
 
-	mockOutput.EXPECT().FlushToOutput(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, messages []clogger.Message) error {
+	mockOutput.EXPECT().FlushToOutput(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, messages []clogger.Message) (outputs.OutputResult, error) {
 		if len(messages) != 3 {
 			t.Errorf("Buffer wasn't completly flushed - expected 3 messages, got %d", len(messages))
 		}
-		return nil
-	}).MinTimes(1).MaxTimes(1)
+		return outputs.OUTPUT_SUCCESS, nil
+	}).Times(1)
 
 	pipeline := pipeline.NewPipeline(map[string]inputs.Inputter{
 		"test_input": mockInput,
@@ -59,5 +60,5 @@ func TestPipeline(t *testing.T) {
 	pipeline.Run()
 
 	// Wait for a bit to let the pipeline chug
-	time.Sleep(time.Millisecond * 100)
+	pipeline.Kill()
 }

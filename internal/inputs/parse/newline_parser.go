@@ -2,15 +2,20 @@ package parse
 
 import (
 	"bufio"
+	"context"
 	"io"
 	"time"
 
 	"github.com/sinkingpoint/clogger/internal/clogger"
+	"github.com/sinkingpoint/clogger/internal/tracing"
 )
 
 type NewlineParser struct{}
 
-func (j *NewlineParser) ParseStream(bytes io.ReadCloser, flushChan chan []clogger.Message) error {
+func (j *NewlineParser) ParseStream(ctx context.Context, bytes io.ReadCloser, flushChan chan []clogger.Message) error {
+	_, span := tracing.GetTracer().Start(ctx, "NewlineParser.ParseStream")
+	defer span.End()
+
 	scanner := bufio.NewScanner(bytes)
 	for scanner.Scan() {
 		line := scanner.Text()

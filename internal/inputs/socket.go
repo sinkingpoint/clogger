@@ -11,6 +11,8 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/sinkingpoint/clogger/internal/clogger"
 	"github.com/sinkingpoint/clogger/internal/inputs/parse"
+	"github.com/sinkingpoint/clogger/internal/tracing"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 const DEFAULT_SOCKET_PATH = "/run/clogger/clogger.sock"
@@ -53,21 +55,32 @@ func NewSocketInput(c SocketInputConfig) *SocketInput {
 	}
 }
 
-func (j *SocketInput) Kill() {
-	j.conf.KillChannel <- true
+func (s *SocketInput) Kill() {
+	s.conf.killChannel <- true
 }
 
-func (s *SocketInput) handleConn(conn net.Conn, flush chan []clogger.Message) {
+func (s *SocketInput) handleConn(ctx context.Context, conn net.Conn, flush chan []clogger.Message) {
+	ctx, span := tracing.GetTracer().Start(ctx, "SocketInput.handleConn")
+	defer span.End()
 	defer conn.Close()
-	if err := s.conf.Parser.ParseStream(conn, flush); err != nil {
+	if err := s.conf.Parser.ParseStream(ctx, conn, flush); err != nil {
+		span.RecordError(err)
 		log.Debug().Err(err).Msg("Failed to parse incoming stream")
+	} else {
+		log.Debug().Msg("Connection exited cleanly")
 	}
 }
 
 func (s *SocketInput) Run(ctx context.Context, flushChan chan []clogger.Message) error {
-	if _, err := os.Stat(s.conf.SocketPath); !errors.Is(err, os.ErrExist) {
+	ctx, span := tracing.GetTracer().Start(ctx, "SocketInput.Run")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("socket_path", s.conf.SocketPath))
+
+	if _, err := os.Stat(s.conf.SocketPath); !errors.Is(err, os.ErrNotExist) {
 		// Delete the existing socket so we can remake it
 		log.Info().Str("socket_path", s.conf.SocketPath).Msg("Cleaning up left behind socket")
+		span.AddEvent("Deleting old socket")
 		if err = os.Remove(s.conf.SocketPath); err != nil {
 			return err
 		}
@@ -78,30 +91,29 @@ func (s *SocketInput) Run(ctx context.Context, flushChan chan []clogger.Message)
 		return err
 	}
 
-	defer l.Close()
+	go func() {
+		<-s.conf.killChannel
+		l.Close()
+	}()
 
 	wg := sync.WaitGroup{}
-
-outer:
 	for {
-		select {
-		case <-s.conf.KillChannel:
-			break outer
-		default:
-			conn, err := l.Accept()
+		conn, err := l.Accept()
 
-			if err != nil {
-				return err
-			}
-
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				s.handleConn(conn, flushChan)
-			}()
+		if err != nil {
+			break
 		}
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			s.handleConn(ctx, conn, flushChan)
+		}()
 	}
 
+	// Wait for all the connections to cleanly end
+	log.Debug().Msg("Socket Inputter Closing... Waiting on child connections")
+	l.Close()
 	wg.Wait()
 	return nil
 }

@@ -20,7 +20,7 @@ func TestSenderFlushesOnFullBuffer(t *testing.T) {
 
 	mockOutput := mock_outputs.NewMockOutputter(ctrl)
 	// We expect to flush the buffer exactly once
-	mockOutput.EXPECT().FlushToOutput(gomock.Any(), gomock.Any()).MinTimes(1).MaxTimes(1)
+	mockOutput.EXPECT().FlushToOutput(gomock.Any(), gomock.Any()).Times(1)
 
 	s := outputs.NewSender(outputs.SendConfig{
 		FlushInterval: 10 * time.Second,

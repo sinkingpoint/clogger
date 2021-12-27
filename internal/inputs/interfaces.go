@@ -13,11 +13,11 @@ type Inputter interface {
 }
 
 type RecvConfig struct {
-	KillChannel chan bool
+	killChannel chan bool
 }
 
 func NewRecvConfig() RecvConfig {
 	return RecvConfig{
-		KillChannel: make(chan bool),
+		killChannel: make(chan bool, 1),
 	}
 }

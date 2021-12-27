@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/rs/zerolog/log"
 	"github.com/sinkingpoint/clogger/internal/clogger"
 	"github.com/sinkingpoint/clogger/internal/outputs/format"
 )
@@ -84,21 +83,21 @@ type Outputter interface {
 }
 
 // StartOutputter starts up a go routine that handles all the input to the given output + buffering etc
-func StartOutputter(inputChan chan []clogger.Message, send Outputter, killChan chan bool) {
+func StartOutputter(inputChan chan []clogger.Message, send Outputter) {
 	s := NewSender(send.GetSendConfig(), send)
 	ticker := time.NewTicker(s.FlushInterval)
 outer:
 	for {
 		select {
-		case <-killChan:
-			s.Flush(context.Background(), true)
-			break outer
 		case <-ticker.C:
 			s.Flush(context.Background(), false)
-		case messages := <-inputChan:
+		case messages, ok := <-inputChan:
 			s.QueueMessages(context.Background(), messages)
+			if !ok {
+				break outer
+			}
 		}
 	}
 
-	log.Warn().Msg("Outputter Exited")
+	s.Flush(context.Background(), true)
 }

@@ -11,7 +11,7 @@ genmocks:
 
 .PHONY: test
 test:
-	gotip test ./...
+	gotip test ./... -timeout 2s
 
 .PHONY: commit
 commit: test

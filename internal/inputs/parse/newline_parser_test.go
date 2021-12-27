@@ -2,6 +2,7 @@ package parse_test
 
 import (
 	"bytes"
+	"context"
 	"io/ioutil"
 	"strings"
 	"testing"
@@ -21,10 +22,12 @@ func TestNewLineParser(t *testing.T) {
 	parser := parse.NewlineParser{}
 	c := make(chan []clogger.Message, 10)
 
-	err := parser.ParseStream(reader, c)
+	err := parser.ParseStream(context.Background(), reader, c)
 	if err != nil {
 		t.Fatalf("Error found when parsing input: %s", err.Error())
 	}
+
+	close(c)
 
 	numMessages := 0
 	for msgWrap := range c {

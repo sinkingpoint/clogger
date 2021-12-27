@@ -1,6 +1,7 @@
 package parse
 
 import (
+	"context"
 	"fmt"
 	"io"
 
@@ -8,7 +9,7 @@ import (
 )
 
 type InputParser interface {
-	ParseStream(bytes io.ReadCloser, flushChan chan []clogger.Message) error
+	ParseStream(ctx context.Context, bytes io.ReadCloser, flushChan chan []clogger.Message) error
 }
 
 func GetParserFromString(s string, args map[string]string) (InputParser, error) {
