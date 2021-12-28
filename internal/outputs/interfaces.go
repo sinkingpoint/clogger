@@ -83,7 +83,7 @@ type Outputter interface {
 }
 
 // StartOutputter starts up a go routine that handles all the input to the given output + buffering etc
-func StartOutputter(inputChan chan []clogger.Message, send Outputter) {
+func StartOutputter(inputChan clogger.MessageChannel, send Outputter) {
 	s := NewSender(send.GetSendConfig(), send)
 	ticker := time.NewTicker(s.FlushInterval)
 outer:

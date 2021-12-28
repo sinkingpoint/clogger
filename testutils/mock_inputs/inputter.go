@@ -48,7 +48,7 @@ func (mr *MockInputterMockRecorder) Kill() *gomock.Call {
 }
 
 // Run mocks base method.
-func (m *MockInputter) Run(ctx context.Context, flushChan chan []clogger.Message) error {
+func (m *MockInputter) Run(ctx context.Context, flushChan clogger.MessageChannel) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Run", ctx, flushChan)
 	ret0, _ := ret[0].(error)

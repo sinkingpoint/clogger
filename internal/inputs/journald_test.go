@@ -21,7 +21,7 @@ func TestJournalDInput(t *testing.T) {
 		}, nil
 	}).MinTimes(2)
 
-	flushChan := make(chan []clogger.Message)
+	flushChan := make(clogger.MessageChannel)
 
 	journalDInput, _ := inputs.NewJournalDInputWithReader(inputs.RecvConfig{}, mockJournalD)
 

@@ -8,6 +8,8 @@ const DEFAULT_BATCH_SIZE = 100
 const DEFAULT_FLUSH_DURATION = 10 * time.Millisecond
 const MESSAGE_FIELD = "message"
 
+type MessageChannel = chan []Message
+
 type Message struct {
 	MonoTimestamp int64
 	ParsedFields  map[string]interface{}

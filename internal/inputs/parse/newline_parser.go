@@ -12,7 +12,7 @@ import (
 
 type NewlineParser struct{}
 
-func (j *NewlineParser) ParseStream(ctx context.Context, bytes io.ReadCloser, flushChan chan []clogger.Message) error {
+func (j *NewlineParser) ParseStream(ctx context.Context, bytes io.ReadCloser, flushChan clogger.MessageChannel) error {
 	_, span := tracing.GetTracer().Start(ctx, "NewlineParser.ParseStream")
 	defer span.End()
 

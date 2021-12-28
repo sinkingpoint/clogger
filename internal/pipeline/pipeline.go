@@ -45,8 +45,8 @@ func (p *Pipeline) Wait() {
 }
 
 func (p *Pipeline) Run() {
-	inputPipes := make(map[string]chan []clogger.Message, len(p.Inputs))
-	outputPipes := make(map[string]chan []clogger.Message, len(p.Outputs))
+	inputPipes := make(map[string]clogger.MessageChannel, len(p.Inputs))
+	outputPipes := make(map[string]clogger.MessageChannel, len(p.Outputs))
 
 	aggInputChannel := make(chan assignedMessage, 10)
 
@@ -55,10 +55,10 @@ func (p *Pipeline) Run() {
 	outputWg := sync.WaitGroup{}
 
 	for name, input := range p.Inputs {
-		inputPipes[name] = make(chan []clogger.Message, 10)
+		inputPipes[name] = make(clogger.MessageChannel, 10)
 
 		inputWg.Add(1)
-		go func(input inputs.Inputter, inputChannel chan []clogger.Message) {
+		go func(input inputs.Inputter, inputChannel clogger.MessageChannel) {
 			defer inputWg.Done()
 			defer close(inputChannel)
 			err := input.Run(context.Background(), inputChannel)
@@ -68,7 +68,7 @@ func (p *Pipeline) Run() {
 		}(input, inputPipes[name])
 
 		inputAggWg.Add(1)
-		go func(name string, inputPipe chan []clogger.Message) {
+		go func(name string, inputPipe clogger.MessageChannel) {
 			defer inputAggWg.Done()
 		outer:
 			for {
@@ -85,9 +85,9 @@ func (p *Pipeline) Run() {
 	}
 
 	for name, output := range p.Outputs {
-		outputPipes[name] = make(chan []clogger.Message, 10)
+		outputPipes[name] = make(clogger.MessageChannel, 10)
 		outputWg.Add(1)
-		go func(output outputs.Outputter, pipe chan []clogger.Message) {
+		go func(output outputs.Outputter, pipe clogger.MessageChannel) {
 			defer func() {
 				outputWg.Done()
 			}()

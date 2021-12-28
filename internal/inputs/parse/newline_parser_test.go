@@ -20,7 +20,7 @@ func TestNewLineParser(t *testing.T) {
 	reader := ioutil.NopCloser(bytes.NewReader([]byte(strings.Join(data, "\n"))))
 
 	parser := parse.NewlineParser{}
-	c := make(chan []clogger.Message, 10)
+	c := make(clogger.MessageChannel, 10)
 
 	err := parser.ParseStream(context.Background(), reader, c)
 	if err != nil {

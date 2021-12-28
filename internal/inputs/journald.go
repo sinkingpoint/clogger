@@ -124,7 +124,7 @@ func NewJournalDInputWithReader(conf RecvConfig, reader JournalDReader) (*Journa
 }
 
 // Runs the JournalDInput, piping the stream to the given flush channel
-func (j *JournalDInput) Run(ctx context.Context, flushChan chan []clogger.Message) error {
+func (j *JournalDInput) Run(ctx context.Context, flushChan clogger.MessageChannel) error {
 	defer j.reader.Close()
 outer:
 	for {

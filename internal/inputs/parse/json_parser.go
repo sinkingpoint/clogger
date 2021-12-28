@@ -12,7 +12,7 @@ import (
 
 type JSONParser struct{}
 
-func (j *JSONParser) ParseStream(ctx context.Context, bytes io.ReadCloser, flushChan chan []clogger.Message) error {
+func (j *JSONParser) ParseStream(ctx context.Context, bytes io.ReadCloser, flushChan clogger.MessageChannel) error {
 	_, span := tracing.GetTracer().Start(ctx, "JSONParser.ParseStream")
 	defer span.End()
 

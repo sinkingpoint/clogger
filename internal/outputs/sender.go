@@ -13,7 +13,7 @@ import (
 
 type RetryConfig struct {
 	MaxBackOffTries int
-	BufferChannel   chan []clogger.Message
+	BufferChannel   clogger.MessageChannel
 	currentState    OutputResult
 	lastRetryTime   time.Time
 }

@@ -20,7 +20,7 @@ func TestPipeline(t *testing.T) {
 
 	mockInput := mock_inputs.NewMockInputter(ctrl)
 	mockInput.EXPECT().Kill().Times(1)
-	mockInput.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, input chan []clogger.Message) error {
+	mockInput.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, input clogger.MessageChannel) error {
 		input <- []clogger.Message{
 			{
 				MonoTimestamp: 0,

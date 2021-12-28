@@ -59,7 +59,7 @@ func (s *SocketInput) Kill() {
 	s.conf.killChannel <- true
 }
 
-func (s *SocketInput) handleConn(ctx context.Context, conn net.Conn, flush chan []clogger.Message) {
+func (s *SocketInput) handleConn(ctx context.Context, conn net.Conn, flush clogger.MessageChannel) {
 	ctx, span := tracing.GetTracer().Start(ctx, "SocketInput.handleConn")
 	defer span.End()
 	defer conn.Close()
@@ -71,7 +71,7 @@ func (s *SocketInput) handleConn(ctx context.Context, conn net.Conn, flush chan 
 	}
 }
 
-func (s *SocketInput) Run(ctx context.Context, flushChan chan []clogger.Message) error {
+func (s *SocketInput) Run(ctx context.Context, flushChan clogger.MessageChannel) error {
 	ctx, span := tracing.GetTracer().Start(ctx, "SocketInput.Run")
 	defer span.End()
 

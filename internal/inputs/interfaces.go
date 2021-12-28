@@ -8,7 +8,7 @@ import (
 
 // An Inputter is a thing that is able to read messages from somewhere
 type Inputter interface {
-	Run(ctx context.Context, flushChan chan []clogger.Message) error
+	Run(ctx context.Context, flushChan clogger.MessageChannel) error
 	Kill()
 }
 
