@@ -30,6 +30,7 @@ require (
 require (
 	github.com/awalterschulze/gographviz v2.0.3+incompatible
 	github.com/coreos/go-systemd/v22 v22.3.2
+	github.com/d5/tengo/v2 v2.10.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-logr/logr v1.2.1 // indirect
 	github.com/go-logr/stdr v1.2.0 // indirect
