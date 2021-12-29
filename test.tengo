@@ -1,0 +1,4 @@
+shouldDrop := false
+if message["test"] == true {
+    shouldDrop = true
+}

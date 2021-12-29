@@ -36,6 +36,11 @@ func (r *inputterRegistry) Register(name string, configGen configConstructor, co
 	r.configRegistry[name] = configGen
 }
 
+func HasConstructorFor(name string) bool {
+	_, ok := inputsRegistry.configRegistry[name]
+	return ok
+}
+
 // Construct constructs an Inputter from the given name and config map,
 // returning an error if the name or config is invalid
 func Construct(name string, config map[string]string) (Inputter, error) {

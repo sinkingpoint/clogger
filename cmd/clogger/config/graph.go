@@ -1,6 +1,9 @@
 package config
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 type node struct {
 	name  string
@@ -67,6 +70,11 @@ func (c *ConfigGraph) AddNode(parentGraph string, name string, attrs map[string]
 		if _, ok := c.nodes[name]; ok {
 			return fmt.Errorf("config graph already contains a node called `%s`", name)
 		}
+
+		for i := range attrs {
+			attrs[i] = strings.Trim(attrs[i], "\"")
+		}
+
 		c.nodes[name] = node{
 			name,
 			attrs,
@@ -89,6 +97,8 @@ func (c *ConfigGraph) AddAttr(parentGraph string, field, value string) error {
 		if _, ok := c.attrs[field]; ok {
 			return fmt.Errorf("graph already has an attribute `%s`", field)
 		}
+
+		value := strings.Trim(value, "\"")
 
 		c.attrs[field] = value
 	} else {

@@ -7,6 +7,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/sinkingpoint/clogger/internal/clogger"
+	"github.com/sinkingpoint/clogger/internal/filters"
 	"github.com/sinkingpoint/clogger/internal/inputs"
 	"github.com/sinkingpoint/clogger/internal/outputs"
 	"github.com/sinkingpoint/clogger/internal/pipeline"
@@ -53,7 +54,7 @@ func TestPipeline(t *testing.T) {
 		"test_input": mockInput,
 	}, map[string]outputs.Outputter{
 		"test_output": mockOutput,
-	}, map[string][]string{
+	}, map[string]filters.Filter{}, map[string][]string{
 		"test_input": {"test_output"},
 	})
 

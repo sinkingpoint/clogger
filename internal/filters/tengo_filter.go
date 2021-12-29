@@ -2,11 +2,16 @@ package filters
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 
 	"github.com/d5/tengo/v2"
 	"github.com/sinkingpoint/clogger/internal/clogger"
 )
+
+type TengoFilterConfig struct {
+	Path string
+}
 
 type TengoFilter struct {
 	compiled *tengo.Compiled
@@ -27,8 +32,8 @@ func NewTengoFilterFromString(s []byte) (*TengoFilter, error) {
 	}, nil
 }
 
-func NewTengoFilterFromFile(path string) (*TengoFilter, error) {
-	bytes, err := ioutil.ReadFile(path)
+func NewTengoFilterFromConf(conf TengoFilterConfig) (*TengoFilter, error) {
+	bytes, err := ioutil.ReadFile(conf.Path)
 	if err != nil {
 		return nil, err
 	}
@@ -56,4 +61,22 @@ func (t *TengoFilter) Filter(ctx context.Context, msg *clogger.Message) (shouldD
 	err = t.compiled.Get("err").Error()
 
 	return shouldDrop, err
+}
+
+func init() {
+	filtersRegistry.Register("tengo", func(rawConf map[string]string) (interface{}, error) {
+		if path, ok := rawConf["file"]; ok {
+			return TengoFilterConfig{
+				Path: path,
+			}, nil
+		} else {
+			return nil, fmt.Errorf("missing required configuration `file` for Tengo filter")
+		}
+	}, func(rawConf interface{}) (Filter, error) {
+		if conf, ok := rawConf.(TengoFilterConfig); ok {
+			return NewTengoFilterFromConf(conf)
+		} else {
+			return nil, fmt.Errorf("BUG: invalid type for Tengo filter configuration (expected TengoFilterConfig)")
+		}
+	})
 }

@@ -60,3 +60,8 @@ func Construct(name string, config map[string]string) (Filter, error) {
 		return nil, fmt.Errorf("failed to find filter `%s`", name)
 	}
 }
+
+func HasConstructorFor(name string) bool {
+	_, ok := filtersRegistry.configRegistry[name]
+	return ok
+}
