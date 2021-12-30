@@ -10,10 +10,16 @@ import (
 	"github.com/sinkingpoint/clogger/internal/outputs"
 	"github.com/sinkingpoint/clogger/internal/outputs/format"
 	"github.com/sinkingpoint/clogger/internal/pipeline"
+	"github.com/sinkingpoint/clogger/internal/tracing"
 )
 
 func BenchmarkPipeline(b *testing.B) {
 	b.ReportAllocs()
+
+	tracing.InitTracing(tracing.TracingConfig{
+		ServiceName:  "clogger",
+		SamplingRate: 1,
+	})
 
 	input := inputs.NewGoInput()
 	outputter := outputs.DevNullOutput{
@@ -23,13 +29,22 @@ func BenchmarkPipeline(b *testing.B) {
 			Formatter:     &format.ConsoleFormatter{},
 		},
 	}
+	filter, err := filters.NewTengoFilterFromString([]byte(`
+	shouldDrop := false`))
+
+	if err != nil {
+		b.Fatal(err)
+	}
 
 	pipeline := pipeline.NewPipeline(map[string]inputs.Inputter{
 		"test_input": input,
 	}, map[string]outputs.Outputter{
 		"test_output": &outputter,
-	}, map[string]filters.Filter{}, map[string][]string{
-		"test_input": {"test_output"},
+	}, map[string]filters.Filter{
+		"test_filter": filter,
+	}, map[string][]string{
+		"test_input":  {"test_filter"},
+		"test_filter": {"test_output"},
 	})
 
 	pipeline.Run()

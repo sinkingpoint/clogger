@@ -1,5 +1,5 @@
 digraph pipeline {
-  Socket [type=socket parser=json]
+  Socket [type=socket parser=newline]
   ConsoleOutput [type=stdout format=console color=true]
   FilterTests [type=tengo file="test.tengo"]
 

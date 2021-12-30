@@ -11,6 +11,7 @@ import (
 	"github.com/sinkingpoint/clogger/cmd/clogger/build"
 	"github.com/sinkingpoint/clogger/cmd/clogger/config"
 	"github.com/sinkingpoint/clogger/internal/pipeline"
+	"github.com/sinkingpoint/clogger/internal/tracing"
 )
 
 func closeHandler(p *pipeline.Pipeline) {
@@ -34,10 +35,10 @@ func main() {
 		log.Info().Msg("Clogger exiting...")
 	}()
 
-	// tracing.InitTracing(tracing.TracingConfig{
-	// 	ServiceName:  "clogger",
-	// 	SamplingRate: 0.1,
-	// })
+	tracing.InitTracing(tracing.TracingConfig{
+		ServiceName:  "clogger",
+		SamplingRate: 0.1,
+	})
 
 	pipeline, err := config.LoadConfigFile("config.dot")
 	if err != nil {

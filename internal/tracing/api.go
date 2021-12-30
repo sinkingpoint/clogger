@@ -59,12 +59,10 @@ func InitTracing(config TracingConfig) *tracesdk.TracerProvider {
 
 	apiKey := os.Getenv("HONEYCOMB_API_KEY")
 	dataset := os.Getenv("HONEYCOMB_DATASET")
+	otlpEndpoint := os.Getenv("OTLP_ENDPOINT")
 	var exporter tracesdk.SpanExporter
 	var err error
-	if config.Debug || (apiKey == "" || dataset == "") {
-		log.Info().Bool("debug", config.Debug).Msg("Initializing stdout tracing")
-		exporter, err = stdouttrace.New(stdouttrace.WithPrettyPrint())
-	} else {
+	if apiKey != "" && dataset != "" && !config.Debug {
 		log.Info().Bool("debug", config.Debug).Msg("Initializing honeycomb tracing")
 		client := otlptracehttp.NewClient(
 			otlptracehttp.WithHeaders(
@@ -76,6 +74,16 @@ func InitTracing(config TracingConfig) *tracesdk.TracerProvider {
 			otlptracehttp.WithEndpoint("api.honeycomb.io:443"),
 		)
 		exporter, err = otlptrace.New(context.Background(), client)
+	} else if otlpEndpoint != "" && !config.Debug {
+		log.Info().Bool("debug", config.Debug).Msg("Initializing generic otlp tracing")
+		client := otlptracehttp.NewClient(
+			otlptracehttp.WithEndpoint(otlpEndpoint),
+			otlptracehttp.WithInsecure(),
+		)
+		exporter, err = otlptrace.New(context.Background(), client)
+	} else {
+		log.Info().Bool("debug", config.Debug).Msg("Initializing stdout tracing")
+		exporter, err = stdouttrace.New(stdouttrace.WithPrettyPrint())
 	}
 
 	if err != nil {

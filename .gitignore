@@ -1,1 +1,3 @@
 /clogger
+*.out
+*.test

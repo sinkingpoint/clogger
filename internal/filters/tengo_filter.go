@@ -7,6 +7,7 @@ import (
 
 	"github.com/d5/tengo/v2"
 	"github.com/sinkingpoint/clogger/internal/clogger"
+	"github.com/sinkingpoint/clogger/internal/tracing"
 )
 
 type TengoFilterConfig struct {
@@ -42,13 +43,18 @@ func NewTengoFilterFromConf(conf TengoFilterConfig) (*TengoFilter, error) {
 }
 
 func (t *TengoFilter) Filter(ctx context.Context, msg *clogger.Message) (shouldDrop bool, err error) {
+	ctx, span := tracing.GetTracer().Start(ctx, "TengoFilter.Filter")
+	defer span.End()
+
 	if err := t.compiled.Set("message", msg.ParsedFields); err != nil {
 		return t.failOpen, err
 	}
 
-	if err := t.compiled.RunContext(ctx); err != nil {
+	_, exeSpan := tracing.GetTracer().Start(ctx, "TengoFilter.Filter")
+	if err := t.compiled.Run(); err != nil {
 		return t.failOpen, err
 	}
+	exeSpan.End()
 
 	if message := t.compiled.Get("message").Map(); message != nil {
 		msg.ParsedFields = message
