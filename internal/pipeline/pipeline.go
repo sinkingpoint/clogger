@@ -44,7 +44,7 @@ func NewPipeline(inputs map[string]inputs.Inputter, outputs map[string]outputs.O
 		Filters:     filters,
 		Pipes:       pipes,
 		RevPipes:    revPipes,
-		debug:       true,
+		debug:       false,
 		killChannel: make(chan bool, 1),
 		closed:      make(map[string]bool, len(inputs)+len(outputs)+len(filters)),
 		closedLock:  sync.Mutex{},
