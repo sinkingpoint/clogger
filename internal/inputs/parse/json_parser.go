@@ -34,7 +34,7 @@ func (j *JSONParser) ParseStream(ctx context.Context, bytes io.ReadCloser, flush
 		message.ParsedFields = rawMessage
 		message.MonoTimestamp = time.Now().UnixNano()
 
-		flushChan <- []clogger.Message{message}
+		flushChan <- clogger.SizeOneBatch(message)
 	}
 
 	return nil

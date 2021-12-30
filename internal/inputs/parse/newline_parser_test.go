@@ -30,8 +30,8 @@ func TestNewLineParser(t *testing.T) {
 	close(c)
 
 	numMessages := 0
-	for msgWrap := range c {
-		for _, msg := range msgWrap {
+	for batch := range c {
+		for _, msg := range batch.Messages {
 			msgField := msg.ParsedFields["message"]
 			if msgField != data[numMessages] {
 				t.Errorf("Expected %s, got %s", data[numMessages], msgField)

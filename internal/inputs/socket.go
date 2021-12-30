@@ -66,8 +66,6 @@ func (s *SocketInput) handleConn(ctx context.Context, conn net.Conn, flush clogg
 	if err := s.conf.Parser.ParseStream(ctx, conn, flush); err != nil {
 		span.RecordError(err)
 		log.Debug().Err(err).Msg("Failed to parse incoming stream")
-	} else {
-		log.Debug().Msg("Connection exited cleanly")
 	}
 }
 

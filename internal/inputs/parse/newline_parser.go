@@ -19,14 +19,12 @@ func (j *NewlineParser) ParseStream(ctx context.Context, bytes io.ReadCloser, fl
 	scanner := bufio.NewScanner(bytes)
 	for scanner.Scan() {
 		line := scanner.Text()
-		flushChan <- []clogger.Message{
-			{
-				MonoTimestamp: time.Now().UnixNano(),
-				ParsedFields: map[string]interface{}{
-					clogger.MESSAGE_FIELD: line,
-				},
+		flushChan <- clogger.SizeOneBatch(clogger.Message{
+			MonoTimestamp: time.Now().UnixNano(),
+			ParsedFields: map[string]interface{}{
+				clogger.MESSAGE_FIELD: line,
 			},
-		}
+		})
 	}
 
 	return scanner.Err()

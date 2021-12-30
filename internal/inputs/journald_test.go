@@ -27,11 +27,16 @@ func TestJournalDInput(t *testing.T) {
 
 	go journalDInput.Run(context.Background(), flushChan)
 
+	batch := []clogger.Message{}
 	messages := <-flushChan
 	message2 := <-flushChan
-	messages = append(messages, message2...)
+	batch = append(batch, messages.Messages...)
+	batch = append(batch, message2.Messages...)
 
-	if len(messages) != 2 {
-		t.Errorf("Expected to fetch two messages, got %d", len(messages))
+	clogger.PutMessageBatch(messages)
+	clogger.PutMessageBatch(message2)
+
+	if len(batch) != 2 {
+		t.Errorf("Expected to fetch two messages, got %d", len(batch))
 	}
 }

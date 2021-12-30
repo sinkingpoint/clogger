@@ -32,19 +32,18 @@ func (s *StdOutputter) GetSendConfig() SendConfig {
 	return s.SendConfig
 }
 
-func (s *StdOutputter) FlushToOutput(ctx context.Context, messages []clogger.Message) (OutputResult, error) {
+func (s *StdOutputter) FlushToOutput(ctx context.Context, messages *clogger.MessageBatch) (OutputResult, error) {
 	_, span := tracing.GetTracer().Start(ctx, "StdOutputter.FlushToOutput")
 	defer span.End()
 
-	span.SetAttributes(attribute.Int("batch_size", len(messages)))
+	span.SetAttributes(attribute.Int("batch_size", len(messages.Messages)))
 
 	var firstError error
 
-	for i := range messages {
-		msg := &messages[i]
+	for _, msg := range messages.Messages {
 		// Add in the timestamp so that it gets pushed
 		msg.ParsedFields["auth_timestamp"] = msg.MonoTimestamp
-		s, err := s.Formatter.Format(msg)
+		s, err := s.Formatter.Format(&msg)
 		if err != nil {
 			if firstError == nil {
 				firstError = err

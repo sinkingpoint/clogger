@@ -28,14 +28,15 @@ func TestSenderFlushesOnFullBuffer(t *testing.T) {
 		Formatter:     &format.JSONFormatter{},
 	}, mockOutput)
 
+	batch := clogger.GetMessageBatch(2)
+	batch.Messages = append(batch.Messages, clogger.NewMessage(), clogger.NewMessage())
+
 	// Fill up the queue
-	s.QueueMessages(context.Background(), []clogger.Message{
-		clogger.NewMessage(),
-		clogger.NewMessage(),
-	})
+	s.QueueMessages(context.Background(), batch)
+
+	batch = clogger.GetMessageBatch(1)
+	batch.Messages = append(batch.Messages, clogger.NewMessage())
 
 	// Try and send another message, which should flush the buffer of the previous two messages
-	s.QueueMessages(context.Background(), []clogger.Message{
-		clogger.NewMessage(),
-	})
+	s.QueueMessages(context.Background(), batch)
 }

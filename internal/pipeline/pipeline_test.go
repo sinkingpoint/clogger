@@ -22,7 +22,8 @@ func TestPipeline(t *testing.T) {
 	mockInput := mock_inputs.NewMockInputter(ctrl)
 	mockInput.EXPECT().Kill().Times(1)
 	mockInput.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, input clogger.MessageChannel) error {
-		input <- []clogger.Message{
+		batch := clogger.GetMessageBatch(3)
+		batch.Messages = append(batch.Messages, []clogger.Message{
 			{
 				MonoTimestamp: 0,
 			},
@@ -32,7 +33,9 @@ func TestPipeline(t *testing.T) {
 			{
 				MonoTimestamp: 2,
 			},
-		}
+		}...)
+
+		input <- batch
 
 		return nil
 	}).MaxTimes(1)
@@ -43,9 +46,9 @@ func TestPipeline(t *testing.T) {
 		BatchSize:     3,
 	}).Times(1)
 
-	mockOutput.EXPECT().FlushToOutput(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, messages []clogger.Message) (outputs.OutputResult, error) {
-		if len(messages) != 3 {
-			t.Errorf("Buffer wasn't completly flushed - expected 3 messages, got %d", len(messages))
+	mockOutput.EXPECT().FlushToOutput(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, batch *clogger.MessageBatch) (outputs.OutputResult, error) {
+		if len(batch.Messages) != 3 {
+			t.Errorf("Buffer wasn't completly flushed - expected 3 messages, got %d", len(batch.Messages))
 		}
 		return outputs.OUTPUT_SUCCESS, nil
 	}).Times(1)

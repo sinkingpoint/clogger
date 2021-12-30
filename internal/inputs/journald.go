@@ -145,7 +145,7 @@ outer:
 				delete(msg.ParsedFields, "MESSAGE")
 			}
 
-			flushChan <- []clogger.Message{msg}
+			flushChan <- clogger.SizeOneBatch(msg)
 		}
 	}
 

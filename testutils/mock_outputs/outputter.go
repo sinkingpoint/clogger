@@ -37,7 +37,7 @@ func (m *MockOutputter) EXPECT() *MockOutputterMockRecorder {
 }
 
 // FlushToOutput mocks base method.
-func (m *MockOutputter) FlushToOutput(ctx context.Context, messages []clogger.Message) (outputs.OutputResult, error) {
+func (m *MockOutputter) FlushToOutput(ctx context.Context, messages *clogger.MessageBatch) (outputs.OutputResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FlushToOutput", ctx, messages)
 	ret0, _ := ret[0].(outputs.OutputResult)

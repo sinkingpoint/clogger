@@ -46,8 +46,8 @@ func (r *outputterRegistry) Register(name string, configGen configConstructor, c
 	r.configRegistry[name] = configGen
 }
 
-func HasConstructorFor(name string) bool {
-	_, ok := outputsRegistry.configRegistry[name]
+func HasConstructorFor(s string) bool {
+	_, ok := outputsRegistry.configRegistry[s]
 	return ok
 }
 

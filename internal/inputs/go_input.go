@@ -31,14 +31,14 @@ func (s *GoInput) Run(ctx context.Context, flushChan clogger.MessageChannel) err
 	defer span.End()
 
 	for msg := range s.c {
-		flushChan <- []clogger.Message{
-			{
+		flushChan <- clogger.SizeOneBatch(
+			clogger.Message{
 				MonoTimestamp: time.Now().UnixNano(),
 				ParsedFields: map[string]interface{}{
 					clogger.MESSAGE_FIELD: msg,
 				},
 			},
-		}
+		)
 	}
 
 	return nil

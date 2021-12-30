@@ -79,7 +79,7 @@ type Outputter interface {
 	GetSendConfig() SendConfig
 
 	// FlushToOutput takes a buffer of messages, and pushes them somewhere
-	FlushToOutput(ctx context.Context, messages []clogger.Message) (OutputResult, error)
+	FlushToOutput(ctx context.Context, messages *clogger.MessageBatch) (OutputResult, error)
 }
 
 // StartOutputter starts up a go routine that handles all the input to the given output + buffering etc
@@ -91,11 +91,11 @@ outer:
 		select {
 		case <-ticker.C:
 			s.Flush(context.Background(), false)
-		case messages, ok := <-inputChan:
-			s.QueueMessages(context.Background(), messages)
+		case batch, ok := <-inputChan:
 			if !ok {
 				break outer
 			}
+			s.QueueMessages(context.Background(), batch)
 		}
 	}
 

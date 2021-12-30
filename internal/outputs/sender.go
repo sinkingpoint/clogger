@@ -23,7 +23,7 @@ type Sender struct {
 	SendConfig
 	RetryConfig
 	sender        Outputter
-	buffer        []clogger.Message
+	buffer        *clogger.MessageBatch
 	lastFlushTime time.Time
 }
 
@@ -34,7 +34,7 @@ func NewSender(config SendConfig, logic Outputter) *Sender {
 			MaxBackOffTries: 5, // arbitrary, just for testing. Must make this configurable
 			currentState:    OUTPUT_SUCCESS,
 		},
-		buffer:        make([]clogger.Message, 0, config.BatchSize),
+		buffer:        clogger.GetMessageBatch(config.BatchSize),
 		lastFlushTime: time.Now(),
 		sender:        logic,
 	}
@@ -42,36 +42,40 @@ func NewSender(config SendConfig, logic Outputter) *Sender {
 
 // QueueMessages takes the given messages and appends them to the buffer,
 // flushing as necessary
-func (s *Sender) QueueMessages(ctx context.Context, messages []clogger.Message) {
-	ctx, span := tracing.GetTracer().Start(ctx, "Sender.queueMessages")
+func (s *Sender) QueueMessages(ctx context.Context, batch *clogger.MessageBatch) {
+	ctx, span := tracing.GetTracer().Start(ctx, "Sender.QueueMessages")
 	defer span.End()
 
 	span.SetAttributes(
-		attribute.Int("buffer_size", len(s.buffer)),
-		attribute.Int("num_new_messages", len(messages)),
-		attribute.Int("remaining_room", cap(s.buffer)-len(s.buffer)),
+		attribute.Int("buffer_size", len(s.buffer.Messages)),
+		attribute.Int("num_new_messages", len(batch.Messages)),
+		attribute.Int("remaining_room", cap(s.buffer.Messages)-len(s.buffer.Messages)),
 	)
 
 	chunks := 1
 
-	for remainingRoom := cap(s.buffer) - len(s.buffer); remainingRoom < len(messages); remainingRoom = cap(s.buffer) - len(s.buffer) {
+	batchMessages := batch.Messages
+
+	for remainingRoom := cap(s.buffer.Messages) - len(s.buffer.Messages); remainingRoom < len(batch.Messages); remainingRoom = cap(s.buffer.Messages) - len(s.buffer.Messages) {
 		// Chunk the data into buffer sized pieces
 		chunks += 1
-		s.buffer = append(s.buffer, messages[:remainingRoom]...)
+		s.buffer.Messages = append(s.buffer.Messages, batchMessages[:remainingRoom]...)
 		s.Flush(ctx, false)
-		messages = messages[remainingRoom:]
+		batchMessages = batchMessages[remainingRoom:]
 	}
 
 	span.SetAttributes(attribute.Int("chunks", chunks))
 
-	s.buffer = append(s.buffer, messages...)
+	clogger.PutMessageBatch(batch)
+
+	s.buffer.Messages = append(s.buffer.Messages, batchMessages...)
 }
 
 // handleLongFailure handles the buffer in the event that the main sender fails
 func (s *Sender) handleLongFailure(ctx context.Context) error {
 	_, span := tracing.GetTracer().Start(ctx, "Sender.handleLongFailure")
 	defer span.End()
-	span.SetAttributes(attribute.Bool("has_bufferchannel", s.BufferChannel != nil), attribute.Int("buffer_size", len(s.buffer)))
+	span.SetAttributes(attribute.Bool("has_bufferchannel", s.BufferChannel != nil), attribute.Int("buffer_size", len(s.buffer.Messages)))
 
 	s.currentState = OUTPUT_LONG_FAILURE
 
@@ -79,7 +83,7 @@ func (s *Sender) handleLongFailure(ctx context.Context) error {
 		s.BufferChannel <- s.buffer
 	}
 
-	s.buffer = s.buffer[:0]
+	s.buffer.Messages = s.buffer.Messages[:0]
 
 	return nil
 }
@@ -90,7 +94,7 @@ func (s *Sender) doExponentialRetry(ctx context.Context) error {
 	ctx, span := tracing.GetTracer().Start(ctx, "Sender.doExponentialRetry")
 	defer span.End()
 
-	span.SetAttributes(attribute.Int("buffer_size", len(s.buffer)))
+	span.SetAttributes(attribute.Int("buffer_size", len(s.buffer.Messages)))
 	// start at one because we assume we've already done one attempt at flushing
 	// to get here
 	backoffTime := time.Millisecond * 100
@@ -106,7 +110,7 @@ func (s *Sender) doExponentialRetry(ctx context.Context) error {
 		switch result {
 		case OUTPUT_SUCCESS:
 			span.SetAttributes(attribute.Int("success_after", i))
-			s.buffer = s.buffer[:0]
+			s.buffer.Messages = s.buffer.Messages[:0]
 			s.lastFlushTime = time.Now()
 			s.currentState = OUTPUT_SUCCESS
 			return nil
@@ -129,17 +133,17 @@ func (s *Sender) Flush(ctx context.Context, final bool) {
 	span.SetAttributes(
 		attribute.Bool("final", final),
 		attribute.String("last_flush_time", s.lastFlushTime.Format(time.RFC3339)),
-		attribute.Int("buffer_size", len(s.buffer)),
+		attribute.Int("buffer_size", len(s.buffer.Messages)),
 	)
 
 	enoughTimeSinceLastFlush := time.Since(s.lastFlushTime) >= s.FlushInterval
-	reachedBufferLimit := len(s.buffer) >= s.BatchSize
+	reachedBufferLimit := len(s.buffer.Messages) >= s.BatchSize
 	if !enoughTimeSinceLastFlush && !reachedBufferLimit && !final {
 		span.AddEvent("Skipping Flush - not ready yet")
 		return
 	}
 
-	if len(s.buffer) > 0 {
+	if len(s.buffer.Messages) > 0 {
 		// Don't do any exponential backoff or anything if we know that we're in a long failure
 		// just buffer it, but retry every minute or so incase we're back
 		if s.currentState == OUTPUT_LONG_FAILURE && time.Since(s.lastRetryTime) < 30*time.Second {
@@ -157,7 +161,7 @@ func (s *Sender) Flush(ctx context.Context, final bool) {
 
 		switch result {
 		case OUTPUT_SUCCESS:
-			s.buffer = s.buffer[:0]
+			s.buffer.Messages = s.buffer.Messages[:0]
 			s.lastFlushTime = time.Now()
 			s.currentState = OUTPUT_SUCCESS
 		case OUTPUT_TRANSIENT_FAILURE:
@@ -169,5 +173,10 @@ func (s *Sender) Flush(ctx context.Context, final bool) {
 		case OUTPUT_LONG_FAILURE:
 			s.handleLongFailure(ctx)
 		}
+	}
+
+	if final {
+		clogger.PutMessageBatch(s.buffer)
+		s.buffer = nil
 	}
 }

@@ -1,4 +1,4 @@
 shouldDrop := false
-if message["test"] == true {
+if message["test"] {
     shouldDrop = true
 }

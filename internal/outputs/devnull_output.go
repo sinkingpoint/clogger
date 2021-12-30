@@ -15,6 +15,6 @@ func (d *DevNullOutput) GetSendConfig() SendConfig {
 }
 
 // FlushToOutput takes a buffer of messages, and pushes them somewhere
-func (d *DevNullOutput) FlushToOutput(ctx context.Context, messages []clogger.Message) (OutputResult, error) {
+func (d *DevNullOutput) FlushToOutput(ctx context.Context, messages *clogger.MessageBatch) (OutputResult, error) {
 	return OUTPUT_SUCCESS, nil
 }

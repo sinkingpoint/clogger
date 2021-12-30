@@ -131,23 +131,25 @@ func (p *Pipeline) Run() {
 		filterWg.Add(1)
 		go func(name string, filter filters.Filter, inputPipe clogger.MessageChannel) {
 			defer filterWg.Done()
-			for msg := range inputPipe {
-				output := make([]clogger.Message, 0, len(msg))
-
-				for i := range msg {
-					shouldDrop, err := filter.Filter(context.Background(), &msg[i])
+			for batch := range inputPipe {
+				currentIndex := 0
+				for _, msg := range batch.Messages {
+					shouldDrop, err := filter.Filter(context.Background(), &msg)
 					if err != nil {
 						log.Warn().Err(err).Msg("Filter failed")
 					}
 
 					if !shouldDrop {
-						output = append(output, msg[i])
+						batch.Messages[currentIndex] = msg
+						currentIndex += 1
 					}
 				}
 
+				batch.Messages = batch.Messages[:currentIndex]
+
 				for _, to := range p.Pipes[name] {
 					if pipe, ok := p.channels[to]; ok {
-						pipe <- output
+						pipe <- batch
 					} else {
 						fmt.Printf("No destination found for `%s`\n", to)
 					}
