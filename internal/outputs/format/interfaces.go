@@ -14,7 +14,18 @@ type Formatter interface {
 func GetFormatterFromString(s string, args map[string]string) (Formatter, error) {
 	switch s {
 	case "json":
-		return &JSONFormatter{}, nil
+		var err error
+		newlines := false
+		if n, ok := args["newlines"]; ok {
+			newlines, err = strconv.ParseBool(n)
+			if err != nil {
+				return nil, fmt.Errorf("invalid bool `%s` for newline delimiting in JSON output - expected true or false", n)
+			}
+		}
+
+		return &JSONFormatter{
+			NewlineDelimited: newlines,
+		}, nil
 	case "console":
 		var err error
 		color := false

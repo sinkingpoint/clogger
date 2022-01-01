@@ -6,8 +6,19 @@ import (
 	"github.com/sinkingpoint/clogger/internal/clogger"
 )
 
-type JSONFormatter struct{}
+type JSONFormatter struct {
+	NewlineDelimited bool
+}
 
 func (j *JSONFormatter) Format(m *clogger.Message) ([]byte, error) {
-	return json.Marshal(m.ParsedFields)
+	data, err := json.Marshal(m.ParsedFields)
+	if err != nil {
+		return nil, err
+	}
+
+	if j.NewlineDelimited {
+		data = append(data, byte('\n'))
+	}
+
+	return data, nil
 }
