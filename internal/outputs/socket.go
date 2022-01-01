@@ -94,6 +94,10 @@ func (s *socketOutput) reconnect() bool {
 	return true
 }
 
+func (s *socketOutput) Close(ctx context.Context) error {
+	return s.conn.Close()
+}
+
 func (s *socketOutput) GetSendConfig() SendConfig {
 	return s.conf.SendConfig
 }

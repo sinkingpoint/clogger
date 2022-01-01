@@ -46,6 +46,8 @@ func TestPipeline(t *testing.T) {
 		BatchSize:     3,
 	}).Times(1)
 
+	mockOutput.EXPECT().Close(gomock.Any()).Times(1)
+
 	mockOutput.EXPECT().FlushToOutput(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, batch *clogger.MessageBatch) (outputs.OutputResult, error) {
 		if len(batch.Messages) != 3 {
 			t.Errorf("Buffer wasn't completly flushed - expected 3 messages, got %d", len(batch.Messages))

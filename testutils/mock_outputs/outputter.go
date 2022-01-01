@@ -36,6 +36,20 @@ func (m *MockOutputter) EXPECT() *MockOutputterMockRecorder {
 	return m.recorder
 }
 
+// Close mocks base method.
+func (m *MockOutputter) Close(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Close", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Close indicates an expected call of Close.
+func (mr *MockOutputterMockRecorder) Close(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockOutputter)(nil).Close), ctx)
+}
+
 // FlushToOutput mocks base method.
 func (m *MockOutputter) FlushToOutput(ctx context.Context, messages *clogger.MessageBatch) (outputs.OutputResult, error) {
 	m.ctrl.T.Helper()

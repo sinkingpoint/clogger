@@ -18,3 +18,7 @@ func (d *DevNullOutput) GetSendConfig() SendConfig {
 func (d *DevNullOutput) FlushToOutput(ctx context.Context, messages *clogger.MessageBatch) (OutputResult, error) {
 	return OUTPUT_SUCCESS, nil
 }
+
+func (d *DevNullOutput) Close(ctx context.Context) error {
+	return nil
+}

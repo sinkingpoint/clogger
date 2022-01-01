@@ -32,6 +32,10 @@ func (s *StdOutputter) GetSendConfig() SendConfig {
 	return s.SendConfig
 }
 
+func (s *StdOutputter) Close(ctx context.Context) error {
+	return nil
+}
+
 func (s *StdOutputter) FlushToOutput(ctx context.Context, messages *clogger.MessageBatch) (OutputResult, error) {
 	_, span := tracing.GetTracer().Start(ctx, "StdOutputter.FlushToOutput")
 	defer span.End()

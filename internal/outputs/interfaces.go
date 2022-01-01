@@ -80,6 +80,8 @@ type Outputter interface {
 
 	// FlushToOutput takes a buffer of messages, and pushes them somewhere
 	FlushToOutput(ctx context.Context, messages *clogger.MessageBatch) (OutputResult, error)
+
+	Close(ctx context.Context) error
 }
 
 // StartOutputter starts up a go routine that handles all the input to the given output + buffering etc
@@ -100,4 +102,5 @@ outer:
 	}
 
 	s.Flush(context.Background(), true)
+	s.sender.Close(context.Background())
 }
