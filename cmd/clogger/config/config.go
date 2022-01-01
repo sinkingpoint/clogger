@@ -64,7 +64,7 @@ func (c *ConfigGraph) ToPipeline() (*pipeline.Pipeline, error) {
 
 					filtersMemoize[fromData.name] = from
 				} else {
-					return nil, fmt.Errorf("missing input or filter for type `%s`", ty)
+					return nil, fmt.Errorf("no such type type `%s`", ty)
 				}
 			} else {
 				return nil, fmt.Errorf("node `%s` is missing a `type` attribute", edge.from)
