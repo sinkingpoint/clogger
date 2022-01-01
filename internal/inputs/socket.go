@@ -15,19 +15,35 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
+type SocketInputType int
+
+const (
+	UNIX_SOCKET_INPUT SocketInputType = iota
+	TCP_SOCKET_INPUT
+)
+
 const DEFAULT_SOCKET_PATH = "/run/clogger/clogger.sock"
+const DEFAULT_LISTEN_ADDR = "localhost:4279"
 
 type SocketInputConfig struct {
 	RecvConfig
-	SocketPath string
+	ListenAddr string
+	Type       SocketInputType
 	Parser     parse.InputParser
 }
 
-func parseSocketConfigFromRaw(conf map[string]string) (SocketInputConfig, error) {
+func parseSocketConfigFromRaw(conf map[string]string, ty SocketInputType) (SocketInputConfig, error) {
 	var err error
-	socketPath := DEFAULT_SOCKET_PATH
-	if path, ok := conf["socket_path"]; ok {
-		socketPath = path
+	var socketListen string
+	if path, ok := conf["listen"]; ok {
+		socketListen = path
+	} else {
+		switch ty {
+		case UNIX_SOCKET_INPUT:
+			socketListen = DEFAULT_SOCKET_PATH
+		case TCP_SOCKET_INPUT:
+			socketListen = DEFAULT_LISTEN_ADDR
+		}
 	}
 
 	parser, _ := parse.GetParserFromString("newline", conf)
@@ -40,26 +56,27 @@ func parseSocketConfigFromRaw(conf map[string]string) (SocketInputConfig, error)
 
 	return SocketInputConfig{
 		RecvConfig: NewRecvConfig(),
-		SocketPath: socketPath,
+		ListenAddr: socketListen,
+		Type:       ty,
 		Parser:     parser,
 	}, nil
 }
 
-type SocketInput struct {
+type socketInput struct {
 	conf SocketInputConfig
 }
 
-func NewSocketInput(c SocketInputConfig) *SocketInput {
-	return &SocketInput{
+func NewSocketInput(c SocketInputConfig) *socketInput {
+	return &socketInput{
 		conf: c,
 	}
 }
 
-func (s *SocketInput) Kill() {
+func (s *socketInput) Kill() {
 	s.conf.killChannel <- true
 }
 
-func (s *SocketInput) handleConn(ctx context.Context, conn net.Conn, flush clogger.MessageChannel) {
+func (s *socketInput) handleConn(ctx context.Context, conn net.Conn, flush clogger.MessageChannel) {
 	ctx, span := tracing.GetTracer().Start(ctx, "SocketInput.handleConn")
 	defer span.End()
 	defer conn.Close()
@@ -69,22 +86,21 @@ func (s *SocketInput) handleConn(ctx context.Context, conn net.Conn, flush clogg
 	}
 }
 
-func (s *SocketInput) Run(ctx context.Context, flushChan clogger.MessageChannel) error {
+func (s *socketInput) Run(ctx context.Context, flushChan clogger.MessageChannel) error {
 	ctx, span := tracing.GetTracer().Start(ctx, "SocketInput.Run")
 	defer span.End()
 
-	span.SetAttributes(attribute.String("socket_path", s.conf.SocketPath))
+	span.SetAttributes(attribute.String("socket_path", s.conf.ListenAddr))
 
-	if _, err := os.Stat(s.conf.SocketPath); !errors.Is(err, os.ErrNotExist) {
-		// Delete the existing socket so we can remake it
-		log.Info().Str("socket_path", s.conf.SocketPath).Msg("Cleaning up left behind socket")
-		span.AddEvent("Deleting old socket")
-		if err = os.Remove(s.conf.SocketPath); err != nil {
-			return err
-		}
+	var ty string
+	switch s.conf.Type {
+	case UNIX_SOCKET_INPUT:
+		ty = "unix"
+	case TCP_SOCKET_INPUT:
+		ty = "tcp"
 	}
 
-	l, err := net.Listen("unix", s.conf.SocketPath)
+	l, err := net.Listen(ty, s.conf.ListenAddr)
 	if err != nil {
 		return err
 	}
@@ -117,14 +133,42 @@ func (s *SocketInput) Run(ctx context.Context, flushChan clogger.MessageChannel)
 }
 
 func init() {
-	// JournalDInput that reads data from the journald stream
-	inputsRegistry.Register("socket", func(rawConf map[string]string) (interface{}, error) {
-		return parseSocketConfigFromRaw(rawConf)
+	inputsRegistry.Register("unix", func(rawConf map[string]string) (interface{}, error) {
+		conf, err := parseSocketConfigFromRaw(rawConf, UNIX_SOCKET_INPUT)
+		if err != nil {
+			return nil, err
+		}
+
+		return conf, nil
+	}, func(conf interface{}) (Inputter, error) {
+		if c, ok := conf.(SocketInputConfig); ok {
+
+			if _, err := os.Stat(c.ListenAddr); !errors.Is(err, os.ErrNotExist) {
+				// Delete the existing socket so we can remake it
+				log.Info().Str("socket_path", c.ListenAddr).Msg("Cleaning up left behind socket")
+				if err = os.Remove(c.ListenAddr); err != nil {
+					return nil, err
+				}
+			}
+
+			return NewSocketInput(c), nil
+		}
+
+		return nil, fmt.Errorf("invalid config passed to socket input")
+	})
+
+	inputsRegistry.Register("tcp", func(rawConf map[string]string) (interface{}, error) {
+		conf, err := parseSocketConfigFromRaw(rawConf, TCP_SOCKET_INPUT)
+		if err != nil {
+			return nil, err
+		}
+
+		return conf, nil
 	}, func(conf interface{}) (Inputter, error) {
 		if c, ok := conf.(SocketInputConfig); ok {
 			return NewSocketInput(c), nil
 		}
 
-		return nil, fmt.Errorf("invalid config passed to journald input")
+		return nil, fmt.Errorf("invalid config passed to socket input")
 	})
 }
