@@ -95,7 +95,13 @@ func (s *socketOutput) reconnect() bool {
 }
 
 func (s *socketOutput) Close(ctx context.Context) error {
-	return s.conn.Close()
+	if s.conn != nil {
+		err := s.conn.Close()
+		s.conn = nil
+		return err
+	}
+
+	return nil
 }
 
 func (s *socketOutput) GetSendConfig() SendConfig {
@@ -114,7 +120,7 @@ func (s *socketOutput) FlushToOutput(ctx context.Context, messages *clogger.Mess
 	for _, msg := range messages.Messages {
 		data, err := s.conf.Formatter.Format(&msg)
 		if err != nil {
-			log.Warn().Msg("Failed to format message")
+			log.Warn().Err(err).Msg("Failed to format message")
 			continue
 		}
 
@@ -164,15 +170,6 @@ func init() {
 		return conf, nil
 	}, func(conf interface{}) (Outputter, error) {
 		if c, ok := conf.(SocketOutputConfig); ok {
-
-			if _, err := os.Stat(c.ListenAddr); !errors.Is(err, os.ErrNotExist) {
-				// Delete the existing socket so we can remake it
-				log.Info().Str("socket_path", c.ListenAddr).Msg("Cleaning up left behind socket")
-				if err = os.Remove(c.ListenAddr); err != nil {
-					return nil, err
-				}
-			}
-
 			return NewSocketOutput(c), nil
 		}
 
