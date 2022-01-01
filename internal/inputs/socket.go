@@ -28,6 +28,7 @@ const DEFAULT_LISTEN_ADDR = "localhost:4279"
 type SocketInputConfig struct {
 	RecvConfig
 	ListenAddr string
+	TLS        *clogger.TLSConfig
 	Type       SocketInputType
 	Parser     parse.InputParser
 }
@@ -54,11 +55,17 @@ func parseSocketConfigFromRaw(conf map[string]string, ty SocketInputType) (Socke
 		}
 	}
 
+	tls, err := clogger.NewTLSConfigFromRaw(conf)
+	if err != nil {
+		return SocketInputConfig{}, err
+	}
+
 	return SocketInputConfig{
 		RecvConfig: NewRecvConfig(),
 		ListenAddr: socketListen,
 		Type:       ty,
 		Parser:     parser,
+		TLS:        &tls,
 	}, nil
 }
 
@@ -100,19 +107,25 @@ func (s *socketInput) Run(ctx context.Context, flushChan clogger.MessageChannel)
 		ty = "tcp"
 	}
 
-	l, err := net.Listen(ty, s.conf.ListenAddr)
+	listener, err := net.Listen(ty, s.conf.ListenAddr)
+	if err != nil {
+		return err
+	}
+
+	listener = s.conf.TLS.WrapListener(listener)
+
 	if err != nil {
 		return err
 	}
 
 	go func() {
 		<-s.conf.killChannel
-		l.Close()
+		listener.Close()
 	}()
 
 	wg := sync.WaitGroup{}
 	for {
-		conn, err := l.Accept()
+		conn, err := listener.Accept()
 
 		if err != nil {
 			break
@@ -127,7 +140,7 @@ func (s *socketInput) Run(ctx context.Context, flushChan clogger.MessageChannel)
 
 	// Wait for all the connections to cleanly end
 	log.Debug().Msg("Socket Inputter Closing... Waiting on child connections")
-	l.Close()
+	listener.Close()
 	wg.Wait()
 	return nil
 }
