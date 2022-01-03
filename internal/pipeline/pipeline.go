@@ -191,11 +191,28 @@ func (p *Pipeline) Run() {
 	}
 
 	for name, output := range p.Outputs {
-		p.channels[name] = make(clogger.MessageChannel, 10)
+		if _, ok := p.channels[name]; !ok {
+			p.channels[name] = make(clogger.MessageChannel, 10)
+		}
 		p.wg.Add(1)
+
+		var bufferChannel clogger.MessageChannel
+
+		for _, pipe := range p.Pipes[name] {
+			if pipe.Type == LINK_TYPE_BUFFER {
+				if _, ok := p.channels[pipe.To]; !ok {
+					p.channels[pipe.To] = make(clogger.MessageChannel, 10)
+				}
+
+				bufferChannel = p.channels[pipe.To]
+			} else {
+				log.Panic().Msg("BUG: Found output link that isn't a buffer link")
+			}
+		}
+
 		go func(name string, output outputs.Outputter, pipe clogger.MessageChannel) {
 			defer p.wg.Done()
-			outputs.StartOutputter(pipe, output)
+			outputs.StartOutputter(pipe, output, bufferChannel)
 			p.handleClose(name)
 		}(name, output, p.channels[name])
 	}

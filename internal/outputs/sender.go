@@ -80,7 +80,7 @@ func (s *Sender) handleLongFailure(ctx context.Context) error {
 	s.currentState = OUTPUT_LONG_FAILURE
 
 	if s.BufferChannel != nil {
-		s.BufferChannel <- s.buffer
+		s.BufferChannel <- clogger.CloneBatch(s.buffer)
 	}
 
 	s.buffer.Messages = s.buffer.Messages[:0]

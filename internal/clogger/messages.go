@@ -59,6 +59,15 @@ func SizeOneBatch(m Message) *MessageBatch {
 	return batch
 }
 
+func CloneBatch(m *MessageBatch) *MessageBatch {
+	batch := GetMessageBatch(len(m.Messages))
+	for _, msg := range m.Messages {
+		batch.Messages = append(batch.Messages, msg)
+	}
+
+	return batch
+}
+
 func PutMessageBatch(m *MessageBatch) {
 	batchPool.Put(m)
 }

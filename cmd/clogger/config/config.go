@@ -50,7 +50,7 @@ func (c *ConfigGraph) ToPipeline() (*pipeline.Pipeline, error) {
 		ty := edge.attrs["type"]
 		if ty == "Buffer" {
 			if _, ok := outputsMemoize[edge.from]; !ok {
-				fromData := c.nodes[edge.to]
+				fromData := c.nodes[edge.from]
 				if ty, ok := fromData.attrs["type"]; ok {
 					if outputs.HasConstructorFor(ty) {
 						to, err := outputs.Construct(ty, fromData.attrs)
@@ -65,28 +65,28 @@ func (c *ConfigGraph) ToPipeline() (*pipeline.Pipeline, error) {
 				} else {
 					return nil, fmt.Errorf("node `%s` is missing a `type` attribute", edge.from)
 				}
-
-				toData := c.nodes[edge.from]
-				if ty, ok := toData.attrs["type"]; ok {
-					if outputs.HasConstructorFor(ty) {
-						to, err := outputs.Construct(ty, toData.attrs)
-						if err != nil {
-							return nil, err
-						}
-
-						outputsMemoize[toData.name] = to
-					} else {
-						return nil, fmt.Errorf("no output type called `%s`", ty)
-					}
-				} else {
-					return nil, fmt.Errorf("node `%s` is missing a `type` attribute", edge.from)
-				}
-
-				pipes[edge.from] = append(pipes[edge.from], pipeline.Link{
-					To:   edge.to,
-					Type: pipeline.LINK_TYPE_BUFFER,
-				})
 			}
+
+			toData := c.nodes[edge.to]
+			if ty, ok := toData.attrs["type"]; ok {
+				if outputs.HasConstructorFor(ty) {
+					to, err := outputs.Construct(ty, toData.attrs)
+					if err != nil {
+						return nil, err
+					}
+
+					outputsMemoize[toData.name] = to
+				} else {
+					return nil, fmt.Errorf("no output type called `%s`", ty)
+				}
+			} else {
+				return nil, fmt.Errorf("node `%s` is missing a `type` attribute", edge.from)
+			}
+
+			pipes[edge.from] = append(pipes[edge.from], pipeline.Link{
+				To:   edge.to,
+				Type: pipeline.LINK_TYPE_BUFFER,
+			})
 		} else {
 			if !hasFilter && !hasInput {
 				fromData := c.nodes[edge.from]
