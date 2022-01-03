@@ -13,12 +13,38 @@ import (
 	"github.com/sinkingpoint/clogger/internal/outputs"
 )
 
+type LinkType int
+
+const (
+	LINK_TYPE_NORMAL LinkType = iota
+	LINK_TYPE_BUFFER
+)
+
+type Link struct {
+	To   string
+	Type LinkType
+}
+
+func NewLink(to string) Link {
+	return Link{
+		To:   to,
+		Type: LINK_TYPE_NORMAL,
+	}
+}
+
+func NewBufferLink(to string) Link {
+	return Link{
+		To:   to,
+		Type: LINK_TYPE_BUFFER,
+	}
+}
+
 type Pipeline struct {
 	Inputs      map[string]inputs.Inputter
 	Filters     map[string]filters.Filter
 	Outputs     map[string]outputs.Outputter
-	Pipes       map[string][]string
-	RevPipes    map[string][]string
+	Pipes       map[string][]Link
+	RevPipes    map[string][]Link
 	killChannel chan bool
 	debug       bool
 
@@ -29,12 +55,15 @@ type Pipeline struct {
 	wg sync.WaitGroup
 }
 
-func NewPipeline(inputs map[string]inputs.Inputter, outputs map[string]outputs.Outputter, filters map[string]filters.Filter, pipes map[string][]string) *Pipeline {
-	revPipes := make(map[string][]string, len(pipes))
+func NewPipeline(inputs map[string]inputs.Inputter, outputs map[string]outputs.Outputter, filters map[string]filters.Filter, pipes map[string][]Link) *Pipeline {
+	revPipes := make(map[string][]Link, len(pipes))
 
 	for from, tos := range pipes {
 		for _, to := range tos {
-			revPipes[to] = append(revPipes[to], from)
+			revPipes[to.To] = append(revPipes[to.To], Link{
+				To:   from,
+				Type: to.Type,
+			})
 		}
 	}
 
@@ -64,18 +93,18 @@ func (p *Pipeline) handleClose(chanName string) {
 		toHandle = toHandle[:len(toHandle)-1]
 	outer:
 		for _, dest := range p.Pipes[chanName] {
-			if _, closed := p.closed[dest]; closed {
+			if _, closed := p.closed[dest.To]; closed {
 				continue
 			}
 
-			for _, src := range p.RevPipes[dest] {
-				if _, closed := p.closed[src]; !closed {
+			for _, src := range p.RevPipes[dest.To] {
+				if _, closed := p.closed[src.To]; !closed {
 					continue outer
 				}
 			}
 
-			close(p.channels[dest])
-			toHandle = append(toHandle, dest)
+			close(p.channels[dest.To])
+			toHandle = append(toHandle, dest.To)
 		}
 	}
 }
@@ -100,24 +129,24 @@ func (p *Pipeline) Run() {
 		inputPipes[name] = make(clogger.MessageChannel, 10)
 
 		inputWg.Add(1)
-		go func(input inputs.Inputter, inputChannel clogger.MessageChannel) {
+		go func(name string, input inputs.Inputter, inputChannel clogger.MessageChannel) {
 			defer inputWg.Done()
 			defer close(inputChannel)
 			err := input.Run(context.Background(), inputChannel)
 			if err != nil {
 				log.Err(err).Str("input_name", name).Msg("Failed to start inputter")
 			}
-		}(input, inputPipes[name])
+		}(name, input, inputPipes[name])
 
 		inputAggWg.Add(1)
 		go func(name string, inputPipe clogger.MessageChannel) {
 			defer inputAggWg.Done()
 			for msg := range inputPipe {
 				for _, to := range p.Pipes[name] {
-					if pipe, ok := p.channels[to]; ok {
+					if pipe, ok := p.channels[to.To]; ok {
 						pipe <- msg
 					} else {
-						fmt.Printf("No destination found for `%s`\n", to)
+						fmt.Printf("No destination found for `%s`\n", to.To)
 					}
 				}
 			}
@@ -148,10 +177,10 @@ func (p *Pipeline) Run() {
 				batch.Messages = batch.Messages[:currentIndex]
 
 				for _, to := range p.Pipes[name] {
-					if pipe, ok := p.channels[to]; ok {
+					if pipe, ok := p.channels[to.To]; ok {
 						pipe <- batch
 					} else {
-						fmt.Printf("No destination found for `%s`\n", to)
+						fmt.Printf("No destination found for `%s`\n", to.To)
 					}
 				}
 			}

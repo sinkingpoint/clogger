@@ -42,9 +42,9 @@ func BenchmarkPipeline(b *testing.B) {
 		"test_output": &outputter,
 	}, map[string]filters.Filter{
 		"test_filter": filter,
-	}, map[string][]string{
-		"test_input":  {"test_filter"},
-		"test_filter": {"test_output"},
+	}, map[string][]pipeline.Link{
+		"test_input":  {pipeline.NewLink("test_filter")},
+		"test_filter": {pipeline.NewLink("test_output")},
 	})
 
 	pipeline.Run()

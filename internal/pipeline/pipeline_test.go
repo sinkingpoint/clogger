@@ -59,8 +59,8 @@ func TestPipeline(t *testing.T) {
 		"test_input": mockInput,
 	}, map[string]outputs.Outputter{
 		"test_output": mockOutput,
-	}, map[string]filters.Filter{}, map[string][]string{
-		"test_input": {"test_output"},
+	}, map[string]filters.Filter{}, map[string][]pipeline.Link{
+		"test_input": {pipeline.NewLink("test_output")},
 	})
 
 	pipeline.Run()

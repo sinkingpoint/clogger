@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"io/ioutil"
+	"strings"
 
 	"github.com/awalterschulze/gographviz"
 	"github.com/rs/zerolog/log"
@@ -39,7 +40,7 @@ func (c *ConfigGraph) ToPipeline() (*pipeline.Pipeline, error) {
 	inputsMemoize := make(map[string]inputs.Inputter)
 	outputsMemoize := make(map[string]outputs.Outputter)
 	filtersMemoize := make(map[string]filters.Filter)
-	pipes := make(map[string][]string)
+	pipes := make(map[string][]pipeline.Link)
 	for i := range c.connectors {
 		edge := c.connectors[i]
 
@@ -97,11 +98,18 @@ func (c *ConfigGraph) ToPipeline() (*pipeline.Pipeline, error) {
 			}
 		}
 
-		if p, ok := pipes[edge.from]; ok {
-			pipes[edge.from] = append(p, edge.to)
-		} else {
-			pipes[edge.from] = []string{edge.to}
+		link := pipeline.Link{
+			To:   edge.to,
+			Type: pipeline.LINK_TYPE_NORMAL,
 		}
+
+		if ty, ok := edge.attrs["type"]; ok {
+			if strings.ToLower(ty) == "type" {
+				link.Type = pipeline.LINK_TYPE_BUFFER
+			}
+		}
+
+		pipes[edge.from] = append(pipes[edge.from], link)
 	}
 
 	return pipeline.NewPipeline(inputsMemoize, outputsMemoize, filtersMemoize, pipes), nil
