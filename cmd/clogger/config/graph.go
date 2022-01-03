@@ -17,20 +17,20 @@ type edge struct {
 }
 
 type ConfigGraph struct {
-	name       string
-	attrs      map[string]string
-	subGraphs  map[string]ConfigGraph
-	nodes      map[string]node
-	connectors []edge
+	name      string
+	attrs     map[string]string
+	subGraphs map[string]ConfigGraph
+	nodes     map[string]node
+	edges     []edge
 }
 
 func newConfigGraph() ConfigGraph {
 	return ConfigGraph{
-		name:       "",
-		attrs:      make(map[string]string),
-		subGraphs:  make(map[string]ConfigGraph),
-		nodes:      make(map[string]node),
-		connectors: make([]edge, 0, 10),
+		name:      "",
+		attrs:     make(map[string]string),
+		subGraphs: make(map[string]ConfigGraph),
+		nodes:     make(map[string]node),
+		edges:     make([]edge, 0, 10),
 	}
 }
 
@@ -56,7 +56,7 @@ func (c *ConfigGraph) AddEdge(src, dst string, directed bool, attrs map[string]s
 		return fmt.Errorf("edges in the Config Graph must be directed")
 	}
 
-	c.connectors = append(c.connectors, edge{
+	c.edges = append(c.edges, edge{
 		from:  src,
 		to:    dst,
 		attrs: attrs,
