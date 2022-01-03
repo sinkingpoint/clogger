@@ -1,9 +1,9 @@
 digraph pipeline {
   Socket [type=tcp parser=newline]
-  ConsoleOutput [type=stdout format=console color=true]
+  FileOutput [type=file format=console path="cats.txt"]
   FilterTests [type=tengo file="test.tengo"]
   SocketOutput [type=tcp destination="localhost:8080" format=json]
 
   Socket -> FilterTests -> SocketOutput
-  SocketOutput -> ConsoleOutput [type=Buffer]
+  SocketOutput -> FileOutput [type=Buffer]
 }

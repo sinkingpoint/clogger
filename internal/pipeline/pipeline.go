@@ -10,6 +10,7 @@ import (
 	"github.com/sinkingpoint/clogger/internal/clogger"
 	"github.com/sinkingpoint/clogger/internal/filters"
 	"github.com/sinkingpoint/clogger/internal/inputs"
+	"github.com/sinkingpoint/clogger/internal/metrics"
 	"github.com/sinkingpoint/clogger/internal/outputs"
 )
 
@@ -174,6 +175,9 @@ func (p *Pipeline) Run() {
 					}
 				}
 
+				metrics.FilterDropped.WithLabelValues(name).Add(float64(len(batch.Messages) - currentIndex))
+				metrics.MessagesProcessed.WithLabelValues(name, "filter").Add(float64(len(batch.Messages)))
+
 				batch.Messages = batch.Messages[:currentIndex]
 
 				for _, to := range p.Pipes[name] {
@@ -212,7 +216,7 @@ func (p *Pipeline) Run() {
 
 		go func(name string, output outputs.Outputter, pipe clogger.MessageChannel) {
 			defer p.wg.Done()
-			outputs.StartOutputter(pipe, output, bufferChannel)
+			outputs.StartOutputter(name, pipe, output, bufferChannel)
 			p.handleClose(name)
 		}(name, output, p.channels[name])
 	}

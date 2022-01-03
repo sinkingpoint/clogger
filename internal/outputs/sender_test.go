@@ -21,12 +21,13 @@ func TestSenderFlushesOnFullBuffer(t *testing.T) {
 	mockOutput := mock_outputs.NewMockOutputter(ctrl)
 	// We expect to flush the buffer exactly once
 	mockOutput.EXPECT().FlushToOutput(gomock.Any(), gomock.Any()).Times(1)
-
-	s := outputs.NewSender(outputs.SendConfig{
+	mockOutput.EXPECT().GetSendConfig().Return(outputs.SendConfig{
 		FlushInterval: 10 * time.Second,
 		BatchSize:     2,
 		Formatter:     &format.JSONFormatter{},
-	}, mockOutput)
+	}).Times(1)
+
+	s := outputs.NewSender("test", mockOutput)
 
 	batch := clogger.GetMessageBatch(2)
 	batch.Messages = append(batch.Messages, clogger.NewMessage(), clogger.NewMessage())

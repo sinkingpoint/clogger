@@ -7,6 +7,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"github.com/sinkingpoint/clogger/internal/clogger"
+	"github.com/sinkingpoint/clogger/internal/metrics"
 	"github.com/sinkingpoint/clogger/internal/tracing"
 	"go.opentelemetry.io/otel/attribute"
 )
@@ -22,13 +23,16 @@ type RetryConfig struct {
 type Sender struct {
 	SendConfig
 	RetryConfig
+	name          string
 	sender        Outputter
 	buffer        *clogger.MessageBatch
 	lastFlushTime time.Time
 }
 
-func NewSender(config SendConfig, logic Outputter) *Sender {
+func NewSender(name string, logic Outputter) *Sender {
+	config := logic.GetSendConfig()
 	return &Sender{
+		name:       name,
 		SendConfig: config,
 		RetryConfig: RetryConfig{
 			MaxBackOffTries: 5, // arbitrary, just for testing. Must make this configurable
@@ -52,6 +56,8 @@ func (s *Sender) QueueMessages(ctx context.Context, batch *clogger.MessageBatch)
 		attribute.Int("remaining_room", cap(s.buffer.Messages)-len(s.buffer.Messages)),
 	)
 
+	metrics.MessagesProcessed.WithLabelValues(s.name, "output").Add(float64(len(batch.Messages)))
+
 	chunks := 1
 
 	batchMessages := batch.Messages
@@ -71,13 +77,26 @@ func (s *Sender) QueueMessages(ctx context.Context, batch *clogger.MessageBatch)
 	s.buffer.Messages = append(s.buffer.Messages, batchMessages...)
 }
 
+func (s *Sender) transitionState(ctx context.Context, state OutputResult) {
+	s.currentState = state
+
+	for result, str := range allOutputs {
+		if result == state {
+			metrics.OutputState.WithLabelValues(s.name, str).Set(1)
+		} else {
+			metrics.OutputState.WithLabelValues(s.name, str).Set(0)
+		}
+	}
+}
+
 // handleLongFailure handles the buffer in the event that the main sender fails
 func (s *Sender) handleLongFailure(ctx context.Context) error {
 	_, span := tracing.GetTracer().Start(ctx, "Sender.handleLongFailure")
 	defer span.End()
 	span.SetAttributes(attribute.Bool("has_bufferchannel", s.BufferChannel != nil), attribute.Int("buffer_size", len(s.buffer.Messages)))
 
-	s.currentState = OUTPUT_LONG_FAILURE
+	s.transitionState(ctx, OUTPUT_LONG_FAILURE)
+	metrics.OutputState.WithLabelValues(s.name, "success").Set(0)
 
 	if s.BufferChannel != nil {
 		s.BufferChannel <- clogger.CloneBatch(s.buffer)
@@ -112,7 +131,8 @@ func (s *Sender) doExponentialRetry(ctx context.Context) error {
 			span.SetAttributes(attribute.Int("success_after", i))
 			s.buffer.Messages = s.buffer.Messages[:0]
 			s.lastFlushTime = time.Now()
-			s.currentState = OUTPUT_SUCCESS
+
+			s.transitionState(ctx, OUTPUT_SUCCESS)
 			return nil
 		case OUTPUT_TRANSIENT_FAILURE:
 			backoffTime *= 2
@@ -163,7 +183,7 @@ func (s *Sender) Flush(ctx context.Context, final bool) {
 		case OUTPUT_SUCCESS:
 			s.buffer.Messages = s.buffer.Messages[:0]
 			s.lastFlushTime = time.Now()
-			s.currentState = OUTPUT_SUCCESS
+			s.transitionState(ctx, OUTPUT_SUCCESS)
 		case OUTPUT_TRANSIENT_FAILURE:
 			err := s.doExponentialRetry(ctx)
 			if err != nil {

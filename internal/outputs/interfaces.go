@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/rs/zerolog/log"
 	"github.com/sinkingpoint/clogger/internal/clogger"
 	"github.com/sinkingpoint/clogger/internal/outputs/format"
 )
@@ -25,6 +26,28 @@ const (
 	// buffer it to the buffer destination, if configured - this failure is likely to take a while to resolve
 	OUTPUT_LONG_FAILURE
 )
+
+// allOutputs is a convenience map to take results and return their strings
+// so that we can iterate all the possible OutputResults for metrics
+var allOutputs = map[OutputResult]string{
+	OUTPUT_SUCCESS:           OUTPUT_SUCCESS.ToString(),
+	OUTPUT_TRANSIENT_FAILURE: OUTPUT_TRANSIENT_FAILURE.ToString(),
+	OUTPUT_LONG_FAILURE:      OUTPUT_LONG_FAILURE.ToString(),
+}
+
+func (o OutputResult) ToString() string {
+	switch o {
+	case OUTPUT_SUCCESS:
+		return "success"
+	case OUTPUT_TRANSIENT_FAILURE:
+		return "transient_failure"
+	case OUTPUT_LONG_FAILURE:
+		return "long_failure"
+	}
+
+	log.Fatal().Int("output_result", int(o)).Msg("Missing implementation of `ToString` for OutputResult")
+	return "NOT_IMPLEMENTED"
+}
 
 // SendConfig is a config that specifies the base fields
 // for all outputs
@@ -85,8 +108,8 @@ type Outputter interface {
 }
 
 // StartOutputter starts up a go routine that handles all the input to the given output + buffering etc
-func StartOutputter(inputChan clogger.MessageChannel, send Outputter, bufferChannel clogger.MessageChannel) {
-	s := NewSender(send.GetSendConfig(), send)
+func StartOutputter(name string, inputChan clogger.MessageChannel, send Outputter, bufferChannel clogger.MessageChannel) {
+	s := NewSender(name, send)
 	s.BufferChannel = bufferChannel
 	ticker := time.NewTicker(s.FlushInterval)
 outer:

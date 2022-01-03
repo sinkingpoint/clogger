@@ -6,10 +6,12 @@ import (
 	"runtime"
 	"syscall"
 
+	"github.com/alecthomas/kong"
 	"github.com/rs/zerolog/log"
 
 	"github.com/sinkingpoint/clogger/cmd/clogger/build"
 	"github.com/sinkingpoint/clogger/cmd/clogger/config"
+	"github.com/sinkingpoint/clogger/internal/metrics"
 	"github.com/sinkingpoint/clogger/internal/pipeline"
 	"github.com/sinkingpoint/clogger/internal/tracing"
 )
@@ -28,17 +30,13 @@ func closeHandler(p *pipeline.Pipeline) {
 	}()
 }
 
-func main() {
-	log.Info().Str("version", build.GitHash).Msg("Started Clogger")
-
-	defer func() {
-		log.Info().Msg("Clogger exiting...")
-	}()
-
+func RunServer() {
 	tracing.InitTracing(tracing.TracingConfig{
 		ServiceName:  "clogger",
 		SamplingRate: 0.1,
 	})
+
+	metrics.InitMetrics(config.CLI.Server.MetricsAddress)
 
 	pipeline, err := config.LoadConfigFile("config.dot")
 	if err != nil {
@@ -49,4 +47,19 @@ func main() {
 
 	pipeline.Run()
 	pipeline.Wait()
+}
+
+func main() {
+	log.Info().Str("version", build.GitHash).Msg("Started Clogger")
+
+	defer func() {
+		log.Info().Msg("Clogger exiting...")
+	}()
+
+	ctx := kong.Parse(&config.CLI)
+
+	switch ctx.Command() {
+	case "server":
+		RunServer()
+	}
 }
