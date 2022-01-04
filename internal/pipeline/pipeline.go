@@ -127,7 +127,7 @@ func (p *Pipeline) Run() {
 	for name, input := range p.Inputs {
 		inputCloseChannels[name] = make(chan bool)
 
-		err := input.Init(context.TODO())
+		err := input.Init(context.Background())
 		if err != nil {
 			log.Error().Str("step_name", name).Err(err).Msg("Failed to start input")
 			continue
@@ -146,8 +146,6 @@ func (p *Pipeline) Run() {
 				close(killChannel)
 				cancelled = true
 				cancel()
-				input.Close(context.Background())
-				p.handleClose(name)
 			}()
 
 			for {
@@ -159,6 +157,7 @@ func (p *Pipeline) Run() {
 				}
 
 				if batch != nil {
+					metrics.MessagesProcessed.WithLabelValues(name, "input").Add(float64(len(batch.Messages)))
 					processedLinks := 0
 
 					for _, link := range p.Pipes[name] {
@@ -175,6 +174,8 @@ func (p *Pipeline) Run() {
 				}
 			}
 
+			input.Close(context.Background())
+			p.handleClose(name)
 		}(name, input, inputCloseChannels[name])
 	}
 
