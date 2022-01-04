@@ -36,7 +36,7 @@ func newFileOutputConfigFromRaw(rawConf map[string]string) (FileOutputConfig, er
 }
 
 func NewFileOutput(conf FileOutputConfig) (*FileOutput, error) {
-	file, err := os.Create(conf.Path)
+	file, err := os.OpenFile(conf.Path, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0666)
 
 	if err != nil {
 		return nil, err
