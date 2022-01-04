@@ -104,7 +104,9 @@ func (p *Pipeline) handleClose(chanName string) {
 				}
 			}
 
-			close(p.channels[dest.To])
+			if c := p.channels[dest.To]; c != nil {
+				close(p.channels[dest.To])
+			}
 			toHandle = append(toHandle, dest.To)
 		}
 	}
@@ -124,13 +126,80 @@ func (p *Pipeline) Run() {
 	filterWg := sync.WaitGroup{}
 	inputCloseChannels := map[string]chan bool{}
 
+	for name, output := range p.Outputs {
+		if _, ok := p.channels[name]; !ok {
+			p.channels[name] = make(clogger.MessageChannel, 10)
+		}
+		p.wg.Add(1)
+
+		var bufferChannel clogger.MessageChannel
+
+		for _, pipe := range p.Pipes[name] {
+			if pipe.Type == LINK_TYPE_BUFFER {
+				if _, ok := p.channels[pipe.To]; !ok {
+					p.channels[pipe.To] = make(clogger.MessageChannel, 10)
+				}
+
+				bufferChannel = p.channels[pipe.To]
+			} else {
+				log.Panic().Msg("BUG: Found output link that isn't a buffer link")
+			}
+		}
+
+		go func(name string, output outputs.Outputter, pipe clogger.MessageChannel) {
+			defer p.wg.Done()
+			outputs.StartOutputter(name, pipe, output, bufferChannel)
+			p.handleClose(name)
+		}(name, output, p.channels[name])
+	}
+
+	for name, filter := range p.Filters {
+		p.channels[name] = make(clogger.MessageChannel, 10)
+		filterWg.Add(1)
+		go func(name string, filter filters.Filter, inputPipe clogger.MessageChannel) {
+			defer filterWg.Done()
+			for batch := range inputPipe {
+				currentIndex := 0
+				for _, msg := range batch.Messages {
+					shouldDrop, err := filter.Filter(context.Background(), &msg)
+					if err != nil {
+						log.Warn().Err(err).Msg("Filter failed")
+					}
+
+					if !shouldDrop {
+						batch.Messages[currentIndex] = msg
+						currentIndex += 1
+					}
+				}
+
+				metrics.FilterDropped.WithLabelValues(name).Add(float64(len(batch.Messages) - currentIndex))
+				metrics.MessagesProcessed.WithLabelValues(name, "filter").Add(float64(len(batch.Messages)))
+
+				batch.Messages = batch.Messages[:currentIndex]
+
+				processedLinks := 0
+
+				for _, link := range p.Pipes[name] {
+					if processedLinks >= 1 {
+						batch = clogger.CloneBatch(batch)
+					}
+					p.channels[link.To] <- clogger.CloneBatch(batch)
+					processedLinks += 1
+				}
+			}
+			p.handleClose(name)
+
+			log.Debug().Str("filter_name", name).Msg("Filter exited")
+		}(name, filter, p.channels[name])
+	}
+
 	for name, input := range p.Inputs {
 		inputCloseChannels[name] = make(chan bool)
 
 		err := input.Init(context.Background())
 		if err != nil {
 			log.Error().Str("step_name", name).Err(err).Msg("Failed to start input")
-			continue
+			p.handleClose(name)
 		}
 
 		inputWg.Add(2)
@@ -177,73 +246,6 @@ func (p *Pipeline) Run() {
 			input.Close(context.Background())
 			p.handleClose(name)
 		}(name, input, inputCloseChannels[name])
-	}
-
-	for name, filter := range p.Filters {
-		p.channels[name] = make(clogger.MessageChannel, 10)
-		filterWg.Add(1)
-		go func(name string, filter filters.Filter, inputPipe clogger.MessageChannel) {
-			defer filterWg.Done()
-			for batch := range inputPipe {
-				currentIndex := 0
-				for _, msg := range batch.Messages {
-					shouldDrop, err := filter.Filter(context.Background(), &msg)
-					if err != nil {
-						log.Warn().Err(err).Msg("Filter failed")
-					}
-
-					if !shouldDrop {
-						batch.Messages[currentIndex] = msg
-						currentIndex += 1
-					}
-				}
-
-				metrics.FilterDropped.WithLabelValues(name).Add(float64(len(batch.Messages) - currentIndex))
-				metrics.MessagesProcessed.WithLabelValues(name, "filter").Add(float64(len(batch.Messages)))
-
-				batch.Messages = batch.Messages[:currentIndex]
-
-				processedLinks := 0
-
-				for _, link := range p.Pipes[name] {
-					if processedLinks >= 1 {
-						batch = clogger.CloneBatch(batch)
-					}
-					p.channels[link.To] <- clogger.CloneBatch(batch)
-					processedLinks += 1
-				}
-			}
-			p.handleClose(name)
-
-			log.Debug().Str("filter_name", name).Msg("Filter exited")
-		}(name, filter, p.channels[name])
-	}
-
-	for name, output := range p.Outputs {
-		if _, ok := p.channels[name]; !ok {
-			p.channels[name] = make(clogger.MessageChannel, 10)
-		}
-		p.wg.Add(1)
-
-		var bufferChannel clogger.MessageChannel
-
-		for _, pipe := range p.Pipes[name] {
-			if pipe.Type == LINK_TYPE_BUFFER {
-				if _, ok := p.channels[pipe.To]; !ok {
-					p.channels[pipe.To] = make(clogger.MessageChannel, 10)
-				}
-
-				bufferChannel = p.channels[pipe.To]
-			} else {
-				log.Panic().Msg("BUG: Found output link that isn't a buffer link")
-			}
-		}
-
-		go func(name string, output outputs.Outputter, pipe clogger.MessageChannel) {
-			defer p.wg.Done()
-			outputs.StartOutputter(name, pipe, output, bufferChannel)
-			p.handleClose(name)
-		}(name, output, p.channels[name])
 	}
 
 	if p.debug {
