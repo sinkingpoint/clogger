@@ -12,7 +12,7 @@ import (
 
 type JSONParser struct{}
 
-func (j *JSONParser) ParseStream(ctx context.Context, bytes io.ReadCloser, flushChan clogger.MessageChannel) error {
+func (j *JSONParser) ParseStream(ctx context.Context, bytes io.ReadCloser, flushChan chan clogger.Message) error {
 	_, span := tracing.GetTracer().Start(ctx, "JSONParser.ParseStream")
 	defer span.End()
 
@@ -34,7 +34,7 @@ func (j *JSONParser) ParseStream(ctx context.Context, bytes io.ReadCloser, flush
 		message.ParsedFields = rawMessage
 		message.MonoTimestamp = time.Now().UnixNano()
 
-		flushChan <- clogger.SizeOneBatch(message)
+		flushChan <- message
 	}
 
 	return nil

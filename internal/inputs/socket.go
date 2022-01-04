@@ -70,35 +70,31 @@ func parseSocketConfigFromRaw(conf map[string]string, ty SocketInputType) (Socke
 }
 
 type socketInput struct {
-	conf SocketInputConfig
+	conf         SocketInputConfig
+	internalChan chan clogger.Message
+	listener     net.Listener
+	wg           sync.WaitGroup
 }
 
 func NewSocketInput(c SocketInputConfig) *socketInput {
 	return &socketInput{
-		conf: c,
+		conf:         c,
+		internalChan: make(chan clogger.Message, 10),
+		wg:           sync.WaitGroup{},
 	}
 }
 
-func (s *socketInput) Kill() {
-	s.conf.killChannel <- true
-}
-
-func (s *socketInput) handleConn(ctx context.Context, conn net.Conn, flush clogger.MessageChannel) {
+func (s *socketInput) handleConn(ctx context.Context, conn net.Conn) {
 	ctx, span := tracing.GetTracer().Start(ctx, "SocketInput.handleConn")
 	defer span.End()
 	defer conn.Close()
-	if err := s.conf.Parser.ParseStream(ctx, conn, flush); err != nil {
+	if err := s.conf.Parser.ParseStream(ctx, conn, s.internalChan); err != nil {
 		span.RecordError(err)
 		log.Debug().Err(err).Msg("Failed to parse incoming stream")
 	}
 }
 
-func (s *socketInput) Run(ctx context.Context, flushChan clogger.MessageChannel) error {
-	ctx, span := tracing.GetTracer().Start(ctx, "SocketInput.Run")
-	defer span.End()
-
-	span.SetAttributes(attribute.String("socket_path", s.conf.ListenAddr))
-
+func (s *socketInput) Init(ctx context.Context) error {
 	var ty string
 	switch s.conf.Type {
 	case UNIX_SOCKET_INPUT:
@@ -112,37 +108,55 @@ func (s *socketInput) Run(ctx context.Context, flushChan clogger.MessageChannel)
 		return err
 	}
 
-	listener = s.conf.TLS.WrapListener(listener)
-
-	if err != nil {
-		return err
-	}
+	s.listener = s.conf.TLS.WrapListener(listener)
 
 	go func() {
-		<-s.conf.killChannel
-		listener.Close()
+		for {
+			conn, err := listener.Accept()
+
+			if err != nil {
+				break
+			}
+
+			s.wg.Add(1)
+			go func() {
+				defer s.wg.Done()
+				s.handleConn(ctx, conn)
+			}()
+		}
 	}()
 
-	wg := sync.WaitGroup{}
-	for {
-		conn, err := listener.Accept()
+	return nil
+}
 
-		if err != nil {
-			break
+func (s *socketInput) Close(ctx context.Context) error {
+	s.listener.Close()
+	s.wg.Wait()
+	close(s.internalChan)
+	log.Debug().Msg("Socket Inputter Closing... Waiting on child connections")
+
+	return nil
+}
+
+func (s *socketInput) GetBatch(ctx context.Context) (*clogger.MessageBatch, error) {
+	_, span := tracing.GetTracer().Start(ctx, "SocketInput.GetBatch")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("socket_path", s.conf.ListenAddr))
+
+	select {
+	case <-ctx.Done():
+		return nil, nil
+	case msg := <-s.internalChan:
+		numMessages := len(s.internalChan) + 1
+		batch := clogger.GetMessageBatch(numMessages)
+		batch.Messages = append(batch.Messages, msg)
+		for i := 0; i < numMessages-1; i++ {
+			batch.Messages = append(batch.Messages, <-s.internalChan)
 		}
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			s.handleConn(ctx, conn, flushChan)
-		}()
+		return batch, nil
 	}
-
-	// Wait for all the connections to cleanly end
-	log.Debug().Msg("Socket Inputter Closing... Waiting on child connections")
-	listener.Close()
-	wg.Wait()
-	return nil
 }
 
 func init() {

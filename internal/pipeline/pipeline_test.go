@@ -20,8 +20,9 @@ func TestPipeline(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockInput := mock_inputs.NewMockInputter(ctrl)
-	mockInput.EXPECT().Kill().Times(1)
-	mockInput.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, input clogger.MessageChannel) error {
+	mockInput.EXPECT().Close(gomock.Any()).Times(1)
+	mockInput.EXPECT().Init(gomock.Any()).Times(1)
+	mockInput.EXPECT().GetBatch(gomock.Any()).DoAndReturn(func(ctx context.Context) (*clogger.MessageBatch, error) {
 		batch := clogger.GetMessageBatch(3)
 		batch.Messages = append(batch.Messages, []clogger.Message{
 			{
@@ -35,9 +36,7 @@ func TestPipeline(t *testing.T) {
 			},
 		}...)
 
-		input <- batch
-
-		return nil
+		return batch, nil
 	}).MaxTimes(1)
 
 	mockOutput := mock_outputs.NewMockOutputter(ctrl)
@@ -64,7 +63,5 @@ func TestPipeline(t *testing.T) {
 	})
 
 	pipeline.Run()
-
-	// Wait for a bit to let the pipeline chug
 	pipeline.Kill()
 }

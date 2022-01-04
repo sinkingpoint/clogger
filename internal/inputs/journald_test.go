@@ -25,7 +25,12 @@ func TestJournalDInput(t *testing.T) {
 
 	journalDInput, _ := inputs.NewJournalDInputWithReader(inputs.RecvConfig{}, mockJournalD)
 
-	go journalDInput.Run(context.Background(), flushChan)
+	go func() {
+		for {
+			batch, _ := journalDInput.GetBatch(context.Background())
+			flushChan <- batch
+		}
+	}()
 
 	batch := []clogger.Message{}
 	messages := <-flushChan

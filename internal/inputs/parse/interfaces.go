@@ -9,7 +9,7 @@ import (
 )
 
 type InputParser interface {
-	ParseStream(ctx context.Context, bytes io.ReadCloser, flushChan clogger.MessageChannel) error
+	ParseStream(ctx context.Context, bytes io.ReadCloser, flushChan chan clogger.Message) error
 }
 
 func GetParserFromString(s string, args map[string]string) (InputParser, error) {

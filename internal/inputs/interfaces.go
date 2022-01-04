@@ -8,16 +8,13 @@ import (
 
 // An Inputter is a thing that is able to read messages from somewhere
 type Inputter interface {
-	Run(ctx context.Context, flushChan clogger.MessageChannel) error
-	Kill()
+	Init(ctx context.Context) error
+	GetBatch(ctx context.Context) (*clogger.MessageBatch, error)
+	Close(ctx context.Context) error
 }
 
-type RecvConfig struct {
-	killChannel chan bool
-}
+type RecvConfig struct{}
 
 func NewRecvConfig() RecvConfig {
-	return RecvConfig{
-		killChannel: make(chan bool, 1),
-	}
+	return RecvConfig{}
 }

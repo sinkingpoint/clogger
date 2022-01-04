@@ -13,7 +13,6 @@ import (
 	"github.com/sinkingpoint/clogger/cmd/clogger/config"
 	"github.com/sinkingpoint/clogger/internal/metrics"
 	"github.com/sinkingpoint/clogger/internal/pipeline"
-	"github.com/sinkingpoint/clogger/internal/tracing"
 )
 
 func closeHandler(p *pipeline.Pipeline) {
@@ -31,10 +30,10 @@ func closeHandler(p *pipeline.Pipeline) {
 }
 
 func RunServer() {
-	tracing.InitTracing(tracing.TracingConfig{
-		ServiceName:  "clogger",
-		SamplingRate: 0.1,
-	})
+	// tracing.InitTracing(tracing.TracingConfig{
+	// 	ServiceName:  "clogger",
+	// 	SamplingRate: 0.1,
+	// })
 
 	metrics.InitMetrics(config.CLI.Server.MetricsAddress)
 
@@ -44,7 +43,6 @@ func RunServer() {
 	}
 
 	closeHandler(pipeline)
-
 	pipeline.Run()
 	pipeline.Wait()
 }

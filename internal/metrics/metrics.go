@@ -39,5 +39,5 @@ func InitMetrics(listenAddress string) {
 	prometheus.MustRegister(MessagesProcessed, FilterDropped, OutputState)
 
 	http.Handle("/metrics", promhttp.Handler())
-	http.ListenAndServe(listenAddress, nil)
+	go http.ListenAndServe(listenAddress, nil)
 }

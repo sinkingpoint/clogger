@@ -7,8 +7,6 @@ import (
 	"github.com/coreos/go-systemd/v22/sdjournal"
 	"github.com/sinkingpoint/clogger/internal/clogger"
 	"github.com/sinkingpoint/clogger/internal/tracing"
-
-	"github.com/rs/zerolog/log"
 )
 
 // JournalDReader is an interface that reads messages off the JournalD stream
@@ -123,37 +121,31 @@ func NewJournalDInputWithReader(conf RecvConfig, reader JournalDReader) (*Journa
 	}, nil
 }
 
-// Runs the JournalDInput, piping the stream to the given flush channel
-func (j *JournalDInput) Run(ctx context.Context, flushChan clogger.MessageChannel) error {
-	defer j.reader.Close()
-outer:
-	for {
-		select {
-		case <-j.killChannel:
-			break outer
-		default:
-			msg, err := j.reader.GetEntry(ctx)
-
-			if err != nil {
-				log.Err(err).Msg("Failed to read from JournalD")
-				continue
-			}
-
-			if textMsg, ok := msg.ParsedFields["MESSAGE"]; ok {
-				// Normalise JournalD Formatted message field to our one
-				msg.ParsedFields[clogger.MESSAGE_FIELD] = textMsg
-				delete(msg.ParsedFields, "MESSAGE")
-			}
-
-			flushChan <- clogger.SizeOneBatch(msg)
-		}
-	}
-
+func (j *JournalDInput) Init(ctx context.Context) error {
 	return nil
 }
 
-func (j *JournalDInput) Kill() {
-	j.killChannel <- true
+// Gets a single batch of messages off of the JournalD stream
+func (j *JournalDInput) GetBatch(ctx context.Context) (*clogger.MessageBatch, error) {
+	msg, err := j.reader.GetEntry(ctx)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if textMsg, ok := msg.ParsedFields["MESSAGE"]; ok {
+		// Normalise JournalD Formatted message field to our one
+		msg.ParsedFields[clogger.MESSAGE_FIELD] = textMsg
+		delete(msg.ParsedFields, "MESSAGE")
+	}
+
+	return clogger.SizeOneBatch(msg), nil
+}
+
+func (j *JournalDInput) Close(ctx context.Context) error {
+	j.reader.Close()
+
+	return nil
 }
 
 func init() {

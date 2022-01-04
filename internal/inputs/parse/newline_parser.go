@@ -12,19 +12,19 @@ import (
 
 type NewlineParser struct{}
 
-func (j *NewlineParser) ParseStream(ctx context.Context, bytes io.ReadCloser, flushChan clogger.MessageChannel) error {
+func (j *NewlineParser) ParseStream(ctx context.Context, bytes io.ReadCloser, flushChan chan clogger.Message) error {
 	_, span := tracing.GetTracer().Start(ctx, "NewlineParser.ParseStream")
 	defer span.End()
 
 	scanner := bufio.NewScanner(bytes)
 	for scanner.Scan() {
 		line := scanner.Text()
-		flushChan <- clogger.SizeOneBatch(clogger.Message{
+		flushChan <- clogger.Message{
 			MonoTimestamp: time.Now().UnixNano(),
 			ParsedFields: map[string]interface{}{
 				clogger.MESSAGE_FIELD: line,
 			},
-		})
+		}
 	}
 
 	return scanner.Err()

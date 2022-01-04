@@ -120,40 +120,62 @@ func (p *Pipeline) Wait() {
 }
 
 func (p *Pipeline) Run() {
-	inputPipes := make(map[string]clogger.MessageChannel, len(p.Inputs))
-
 	inputWg := sync.WaitGroup{}
 	filterWg := sync.WaitGroup{}
-	inputAggWg := sync.WaitGroup{}
+	inputCloseChannels := map[string]chan bool{}
 
 	for name, input := range p.Inputs {
-		inputPipes[name] = make(clogger.MessageChannel, 10)
+		inputCloseChannels[name] = make(chan bool)
 
-		inputWg.Add(1)
-		go func(name string, input inputs.Inputter, inputChannel clogger.MessageChannel) {
+		err := input.Init(context.TODO())
+		if err != nil {
+			log.Error().Str("step_name", name).Err(err).Msg("Failed to start input")
+			continue
+		}
+
+		inputWg.Add(2)
+		go func(name string, input inputs.Inputter, killChannel chan bool) {
 			defer inputWg.Done()
-			defer close(inputChannel)
-			err := input.Run(context.Background(), inputChannel)
-			if err != nil {
-				log.Err(err).Str("input_name", name).Msg("Failed to start inputter")
-			}
-		}(name, input, inputPipes[name])
 
-		inputAggWg.Add(1)
-		go func(name string, inputPipe clogger.MessageChannel) {
-			defer inputAggWg.Done()
-			for msg := range inputPipe {
-				for _, to := range p.Pipes[name] {
-					if pipe, ok := p.channels[to.To]; ok {
-						pipe <- msg
-					} else {
-						fmt.Printf("No destination found for `%s`\n", to.To)
+			ctx, cancel := context.WithCancel(context.Background())
+			cancelled := false
+
+			go func() {
+				defer inputWg.Done()
+				<-killChannel
+				close(killChannel)
+				cancelled = true
+				cancel()
+				input.Close(context.Background())
+				p.handleClose(name)
+			}()
+
+			for {
+				batch, err := input.GetBatch(ctx)
+
+				if err != nil {
+					log.Warn().Err(err).Str("step_name", name).Msg("Failed to get batch from input")
+					continue
+				}
+
+				if batch != nil {
+					processedLinks := 0
+
+					for _, link := range p.Pipes[name] {
+						if processedLinks >= 1 {
+							batch = clogger.CloneBatch(batch)
+						}
+						p.channels[link.To] <- clogger.CloneBatch(batch)
+						processedLinks += 1
 					}
+				}
+
+				if cancelled {
+					break
 				}
 			}
 
-			p.handleClose(name)
-		}(name, inputPipes[name])
+		}(name, input, inputCloseChannels[name])
 	}
 
 	for name, filter := range p.Filters {
@@ -180,12 +202,14 @@ func (p *Pipeline) Run() {
 
 				batch.Messages = batch.Messages[:currentIndex]
 
-				for _, to := range p.Pipes[name] {
-					if pipe, ok := p.channels[to.To]; ok {
-						pipe <- batch
-					} else {
-						fmt.Printf("No destination found for `%s`\n", to.To)
+				processedLinks := 0
+
+				for _, link := range p.Pipes[name] {
+					if processedLinks >= 1 {
+						batch = clogger.CloneBatch(batch)
 					}
+					p.channels[link.To] <- clogger.CloneBatch(batch)
+					processedLinks += 1
 				}
 			}
 			p.handleClose(name)
@@ -225,12 +249,8 @@ func (p *Pipeline) Run() {
 		go func() {
 			for {
 				outputStr := ""
-				for name, pipe := range inputPipes {
-					outputStr += fmt.Sprintf("[Input %s %d/%d] ", name, len(pipe), cap(pipe))
-				}
-
 				for name, pipe := range p.channels {
-					outputStr += fmt.Sprintf("[Filter %s %d/%d] ", name, len(pipe), cap(pipe))
+					outputStr += fmt.Sprintf("[Step %s %d/%d] ", name, len(pipe), cap(pipe))
 				}
 
 				fmt.Println(outputStr)
@@ -248,14 +268,12 @@ func (p *Pipeline) Run() {
 	// 6. The output channels being closed forces the outputs to flush and exit
 	go func() {
 		<-p.killChannel
-		for _, input := range p.Inputs {
-			input.Kill()
+		for name := range p.Inputs {
+			inputCloseChannels[name] <- true
 		}
+
 		inputWg.Wait()
-
-		inputAggWg.Wait()
 		filterWg.Wait()
-
 		p.wg.Wait()
 	}()
 }

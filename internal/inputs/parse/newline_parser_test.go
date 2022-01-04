@@ -20,7 +20,7 @@ func TestNewLineParser(t *testing.T) {
 	reader := ioutil.NopCloser(bytes.NewReader([]byte(strings.Join(data, "\n"))))
 
 	parser := parse.NewlineParser{}
-	c := make(clogger.MessageChannel, 10)
+	c := make(chan clogger.Message, 10)
 
 	err := parser.ParseStream(context.Background(), reader, c)
 	if err != nil {
@@ -30,14 +30,12 @@ func TestNewLineParser(t *testing.T) {
 	close(c)
 
 	numMessages := 0
-	for batch := range c {
-		for _, msg := range batch.Messages {
-			msgField := msg.ParsedFields["message"]
-			if msgField != data[numMessages] {
-				t.Errorf("Expected %s, got %s", data[numMessages], msgField)
-			}
-			numMessages += 1
+	for msg := range c {
+		msgField := msg.ParsedFields["message"]
+		if msgField != data[numMessages] {
+			t.Errorf("Expected %s, got %s", data[numMessages], msgField)
 		}
+		numMessages += 1
 	}
 
 	if numMessages != len(data) {

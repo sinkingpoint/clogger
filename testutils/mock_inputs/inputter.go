@@ -35,28 +35,45 @@ func (m *MockInputter) EXPECT() *MockInputterMockRecorder {
 	return m.recorder
 }
 
-// Kill mocks base method.
-func (m *MockInputter) Kill() {
+// Close mocks base method.
+func (m *MockInputter) Close(ctx context.Context) error {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Kill")
-}
-
-// Kill indicates an expected call of Kill.
-func (mr *MockInputterMockRecorder) Kill() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Kill", reflect.TypeOf((*MockInputter)(nil).Kill))
-}
-
-// Run mocks base method.
-func (m *MockInputter) Run(ctx context.Context, flushChan clogger.MessageChannel) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Run", ctx, flushChan)
+	ret := m.ctrl.Call(m, "Close", ctx)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// Run indicates an expected call of Run.
-func (mr *MockInputterMockRecorder) Run(ctx, flushChan interface{}) *gomock.Call {
+// Close indicates an expected call of Close.
+func (mr *MockInputterMockRecorder) Close(ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockInputter)(nil).Run), ctx, flushChan)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockInputter)(nil).Close), ctx)
+}
+
+// GetBatch mocks base method.
+func (m *MockInputter) GetBatch(ctx context.Context) (*clogger.MessageBatch, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBatch", ctx)
+	ret0, _ := ret[0].(*clogger.MessageBatch)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetBatch indicates an expected call of GetBatch.
+func (mr *MockInputterMockRecorder) GetBatch(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBatch", reflect.TypeOf((*MockInputter)(nil).GetBatch), ctx)
+}
+
+// Init mocks base method.
+func (m *MockInputter) Init(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Init", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Init indicates an expected call of Init.
+func (mr *MockInputterMockRecorder) Init(ctx interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Init", reflect.TypeOf((*MockInputter)(nil).Init), ctx)
 }

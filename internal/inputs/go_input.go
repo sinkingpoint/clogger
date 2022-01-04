@@ -18,28 +18,45 @@ func NewGoInput() *GoInput {
 	}
 }
 
-func (s *GoInput) Kill() {
+func (g *GoInput) Init(ctx context.Context) error {
+	return nil
+}
+
+func (s *GoInput) Close(ctx context.Context) error {
 	close(s.c)
+	return nil
 }
 
 func (s *GoInput) Enqueue(msg string) {
 	s.c <- msg
 }
 
-func (s *GoInput) Run(ctx context.Context, flushChan clogger.MessageChannel) error {
+func (g *GoInput) GetBatch(ctx context.Context) (*clogger.MessageBatch, error) {
 	_, span := tracing.GetTracer().Start(ctx, "GoInput.Run")
 	defer span.End()
 
-	for msg := range s.c {
-		flushChan <- clogger.SizeOneBatch(
-			clogger.Message{
+	select {
+	case <-ctx.Done():
+		return nil, nil
+	case msg := <-g.c:
+		numMessages := len(g.c)
+		batch := clogger.GetMessageBatch(numMessages + 1)
+		batch.Messages = append(batch.Messages, clogger.Message{
+			MonoTimestamp: time.Now().UnixNano(),
+			ParsedFields: map[string]interface{}{
+				clogger.MESSAGE_FIELD: msg,
+			},
+		})
+
+		for i := 0; i < numMessages; i++ {
+			batch.Messages = append(batch.Messages, clogger.Message{
 				MonoTimestamp: time.Now().UnixNano(),
 				ParsedFields: map[string]interface{}{
 					clogger.MESSAGE_FIELD: msg,
 				},
-			},
-		)
-	}
+			})
+		}
 
-	return nil
+		return batch, nil
+	}
 }
