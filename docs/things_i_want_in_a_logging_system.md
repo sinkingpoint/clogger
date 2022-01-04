@@ -8,7 +8,7 @@ This is a vague design doc based on what I want in a logging system:
 
 ## Features
 
- - reading from sources including kafka, udp, tcp (with optional tls), files, directories/globs, and straight from JournalD
+ - reading from sources including kafka, udp, tcp (with optional tls), files, directories/globs, and straight from JournalD, Docker, etc
  - writing to destinations including elasticsearch, kafka, and the same system
  - reading/writing in both JSON and Binary formats (capnp)
  - Extention mechanisms with Python to allow full control over log manipulation
